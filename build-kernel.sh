@@ -92,7 +92,7 @@ download_source()
 
     if [ ! -d "${KERNEL_PATH}" ]; then
         git clone --depth=1 -b "${KERNEL_BRANCH}" "${KERNEL_URL}" "${KERNEL_PATH}" | tee "${LOG_PATH}"/clone.log 2>&1
-    elif [ "${FORCE_UPDATE_KERNEL}" == "true" ]
+    elif [ "${FORCE_UPDATE_KERNEL}" == "true" ]; then
         pushd "${KERNEL_PATH}"
 
         git fetch -q origin "${KERNEL_BRANCH}" | tee "${LOG_PATH}"/force-update-fetch.log 2>&1
