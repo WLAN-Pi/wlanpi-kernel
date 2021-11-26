@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_PATH="$(dirname $(realpath "$0"))"
-KERNEL_PATH="$(realpath "$1")"
+KERNEL_PATH="${SCRIPT_PATH}/cache/kernel"
 LOG_PATH="${SCRIPT_PATH}/logs"
 PATCHES_PATH="${SCRIPT_PATH}/kernel-patches"
 
