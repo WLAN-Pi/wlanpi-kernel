@@ -117,10 +117,7 @@ build_kernel()
 {
     pushd "${KERNEL_PATH}"
 
-    log "ok" "Compile kernel"
-    make -j${NUM_CORES} ARCH="${ARCH}" CROSS_COMPILE="${CROSS_COMPILE}" "${KERNEL_IMAGE}" modules dtbs | tee "${LOG_PATH}"/compilation.log 2>&1
-
-    log "ok" "Make kernel package"
+    log "ok" "Build and package kernel"
     make -j${NUM_CORES} bindeb-pkg ARCH="${ARCH}" CROSS_COMPILE="${CROSS_COMPILE}" DEBFULLNAME="${DEBFULLNAME}" DEBEMAIL="${DEBEMAIL}" | tee "${LOG_PATH}"/packaging.log 2>&1
 
     log "ok" "Finished"
