@@ -1,20 +1,110 @@
 #!/bin/bash
 
+PARSED_ARGS=$(getopt -o cfb:j: --long clean,force-sync,branch: --long arch:,git: -- "$@")
+VALID_ARGS=$?
+
 SCRIPT_PATH="$(dirname $(realpath "$0"))"
 KERNEL_PATH="${SCRIPT_PATH}/cache/kernel"
 LOG_PATH="${SCRIPT_PATH}/logs"
 PATCHES_PATH="${SCRIPT_PATH}/kernel-patches"
 
+# Set default values for configurations
 KERNEL_URL="https://github.com/raspberrypi/linux.git"
 KERNEL_BRANCH="rpi-5.15.y"
+KERNEL_ARCH="arm"
+KERNEL_DEFCONFIG="bcm2711_defconfig"
+KERNEL_FORCE_SYNC="0"
+CLEAN_KERNEL="0"
+NUM_CORES=$(($(nproc)/2))
+DEBFULLNAME="Daniel Finimundi"
+DEBEMAIL="daniel@finimundi.com"
 
 mkdir -p "${LOG_PATH}"
 
+usage()
+{
+    echo "Usage: $0 [ -c | --clean ] [ -f | --force-sync ]
+                    [ --arch ARCH ]
+                    [ --git URL ]
+                    [ -b | --branch BRANCH ]
+                    [ -j CORES ]"
+}
+
+process_options()
+{
+    if [ "$VALID_ARGS" != 0 ]; then
+        usage
+        exit 1
+    fi
+
+    echo "PARSED_ARGS = ${PARSED_ARGS}"
+    eval set -- "${PARSED_ARGS}"
+
+    while true; do
+        case "$1" in
+            --arch )
+                KERNEL_ARCH="$2"
+                shift 2
+                ;;
+            --git )
+                KERNEL_URL="$2"
+                shift 2
+                ;;
+            -b | --branch )
+                KERNEL_BRANCH="$2"
+                shift 2
+                ;;
+            -c | --clean )
+                CLEAN_KERNEL="1"
+                shift 1
+                ;;
+            -f | --force-sync )
+                KERNEL_FORCE_SYNC="1"
+                shift 1
+                ;;
+            -j )
+                case "$2" in
+                    x|X) NUM_CORES=$(nproc) ;;
+                    *) NUM_CORES="$2" ;;
+                esac
+                shift 2
+                ;;
+            -- ) shift; break ;;
+            *) usage; break ;;
+        esac
+    done
+
+    if [ "${KERNEL_ARCH}" == "arm" ]; then
+        export ARCH="arm"
+        export CROSS_COMPILE="arm-linux-gnueabihf-"
+        export KERNEL="kernel7l"
+        KERNEL_IMAGE="zImage"
+    elif [ "${KERNEL_ARCH}" == "arm64" ]; then
+        export ARCH="arm64"
+        export CROSS_COMPILE="aarch64-linux-gnu-"
+        export KERNEL="kernel8"
+        KERNEL_IMAGE="Image"
+    fi
+
+    log "ok" "Configs used:"
+    echo "\
+KERNEL_URL="${KERNEL_URL}"
+KERNEL_BRANCH="${KERNEL_BRANCH}"
+KERNEL_ARCH="${KERNEL_ARCH}"
+KERNEL_DEFCONFIG="${KERNEL_DEFCONFIG}"
+KERNEL_FORCE_SYNC="${KERNEL_FORCE_SYNC}"
+CLEAN_KERNEL="${CLEAN_KERNEL}"
+NUM_CORES="${NUM_CORES}"
+"
+}
+
 run_all()
 {
+    process_options
+
     download_source
 
-    if [ "${CLEAN_KERNEL}" == "true" ]; then
+    if [ "${CLEAN_KERNEL}" == "1" ]; then
         clean_kernel
     fi
 
@@ -28,10 +118,10 @@ build_kernel()
     pushd "${KERNEL_PATH}"
 
     log "ok" "Compile kernel"
-    make -j4 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- Image modules dtbs | tee "${LOG_PATH}"/compilation.log 2>&1
+    make -j${NUM_CORES} ARCH="${ARCH}" CROSS_COMPILE="${CROSS_COMPILE}" "${KERNEL_IMAGE}" modules dtbs | tee "${LOG_PATH}"/compilation.log 2>&1
 
     log "ok" "Make kernel package"
-    make -j1 bindeb-pkg ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- DEBFULLNAME="Daniel Finimundi" DEBEMAIL="daniel@finimundi.com" | tee "${LOG_PATH}"/packaging.log 2>&1
+    make -j${NUM_CORES} bindeb-pkg ARCH="${ARCH}" CROSS_COMPILE="${CROSS_COMPILE}" DEBFULLNAME="${DEBFULLNAME}" DEBEMAIL="${DEBEMAIL}" | tee "${LOG_PATH}"/packaging.log 2>&1
 
     log "ok" "Finished"
 
@@ -48,12 +138,13 @@ apply_patches()
     echo "${patches}"
 
     for patch in "${patches[@]}"; do
+        patch_name="$(basename ${patch})"
         if patch --no-backup-if-mismatch --silent --batch -R --dry-run -p1 -N < "${patch}"; then
-            log "warn" "Patch already applied, skipping ${patch}"
+            log "warn" "Patch already applied, skipping ${patch_name}"
             continue
         fi
 
-        log "ok" "Applying patch ${patch}"
+        log "ok" "Applying patch ${patch_name}"
         patch --no-backup-if-mismatch --silent --batch -p1 -N < "${patch}"
 
         if [ $? -ne 0 ]; then
@@ -67,16 +158,12 @@ apply_patches()
 
 generate_config()
 {
-    export ARCH=arm64
-    export CROSS_COMPILE=aarch64-linux-gnu-
-    export KERNEL=kernel8
-
-    cp  "${SCRIPT_PATH}/wlanpi_defconfig" "${KERNEL_PATH}/arch/arm64/configs/"
+    cp  "${SCRIPT_PATH}/wlanpi_defconfig" "${KERNEL_PATH}/arch/${ARCH}/configs/"
 
     pushd "${KERNEL_PATH}"
 
     log "ok" "Customize defconfig"
-    "${KERNEL_PATH}"/scripts/kconfig/merge_config.sh "${KERNEL_PATH}"/arch/arm64/configs/{bcm2711,wlanpi}_defconfig | tee "${LOG_PATH}"/update-config.log 2>&1
+    scripts/kconfig/merge_config.sh "${KERNEL_PATH}"/arch/"${ARCH}"/configs/{${KERNEL_DEFCONFIG},wlanpi_defconfig} | tee "${LOG_PATH}"/update-config.log 2>&1
 
     if grep -q "Actual value:" "${LOG_PATH}"/update-config.log; then
         log "error" "Error updating defconfig. See above log to check which configs had conflicts."
@@ -92,10 +179,11 @@ download_source()
 
     if [ ! -d "${KERNEL_PATH}" ]; then
         git clone --depth=1 -b "${KERNEL_BRANCH}" "${KERNEL_URL}" "${KERNEL_PATH}" | tee "${LOG_PATH}"/clone.log 2>&1
-    elif [ "${FORCE_UPDATE_KERNEL}" == "true" ]; then
+    elif [ "${KERNEL_FORCE_SYNC}" == "1" ]; then
+        log "ok" "Fetching new kernel version"
         pushd "${KERNEL_PATH}"
 
-        git fetch -q origin "${KERNEL_BRANCH}" | tee "${LOG_PATH}"/force-update-fetch.log 2>&1
+        git fetch -q --depth 1 origin "${KERNEL_BRANCH}" | tee "${LOG_PATH}"/force-update-fetch.log 2>&1
         git co -B "${KERNEL_BRANCH}" origin/"${KERNEL_BRANCH}" | tee "${LOG_PATH}"/force-update-checkout.log 2>&1
 
         if [ $? -ne 0 ]; then
@@ -115,7 +203,7 @@ clean_kernel()
 
     log "ok" "Reseting kernel to upstream original code"
 
-    make -j4 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- clean
+    make -j${NUM_CORES} ARCH="${ARCH}" CROSS_COMPILE="${CROSS_COMPILE}" clean
     git clean -fdx
     git reset --hard
     git co -B "${KERNEL_BRANCH}" origin/"${KERNEL_BRANCH}"
