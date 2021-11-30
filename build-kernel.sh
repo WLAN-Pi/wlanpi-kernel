@@ -74,18 +74,23 @@ process_options()
         esac
     done
 
-    if [ "${KERNEL_ARCH}" == "arm" ]; then
-        export ARCH="arm"
-        export CROSS_COMPILE="arm-linux-gnueabihf-"
-        export KERNEL="kernel7l"
-        KERNEL_IMAGE="zImage"
-        WLANPI_DEFCONFIG="wlanpi_v7l_defconfig"
-    elif [ "${KERNEL_ARCH}" == "arm64" ]; then
-        export ARCH="arm64"
-        export CROSS_COMPILE="aarch64-linux-gnu-"
-        export KERNEL="kernel8"
-        KERNEL_IMAGE="Image"
-        WLANPI_DEFCONFIG="wlanpi_v8_defconfig"
+    case "${KERNEL_ARCH}" in
+        arm | armhf )
+            export ARCH="arm"
+            export CROSS_COMPILE="arm-linux-gnueabihf-"
+            export KERNEL="kernel7l"
+            KERNEL_IMAGE="zImage"
+            WLANPI_DEFCONFIG="wlanpi_v7l_defconfig"
+            ;;
+        arm64 )
+            export ARCH="arm64"
+            export CROSS_COMPILE="aarch64-linux-gnu-"
+            export KERNEL="kernel8"
+            KERNEL_IMAGE="Image"
+            WLANPI_DEFCONFIG="wlanpi_v8_defconfig"
+            ;;
+        * )
+            log "error" "Arch ${KERNEL_ARCH} not recognized."
     fi
 
     log "ok" "Configs used:"
