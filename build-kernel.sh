@@ -182,12 +182,11 @@ generate_config()
 
 download_source()
 {
-    log "ok" "Downloading kernel source from ${KERNEL_URL}, branch ${KERNEL_BRANCH}"
-
     if [ ! -d "${KERNEL_PATH}" ]; then
+        log "ok" "Downloading kernel source from ${KERNEL_URL}, branch ${KERNEL_BRANCH}"
         git clone --depth=1 -b "${KERNEL_BRANCH}" "${KERNEL_URL}" "${KERNEL_PATH}" | tee "${LOG_PATH}"/clone.log 2>&1
     elif [ "${KERNEL_FORCE_SYNC}" == "1" ]; then
-        log "ok" "Fetching new kernel version"
+        log "ok" "Fetching new kernel version on branch ${KERNEL_BRANCH}"
         pushd "${KERNEL_PATH}" >/dev/null
 
         git fetch -q --depth 1 origin "${KERNEL_BRANCH}" | tee "${LOG_PATH}"/force-update-fetch.log 2>&1
@@ -199,9 +198,9 @@ download_source()
         fi
 
         popd >/dev/null
+    else
+        log "warn" "Kernel already downloaded. Please use --force-sync if you want to update it."
     fi
-
-    echo
 }
 
 clean_kernel()
