@@ -37,7 +37,6 @@ process_options()
         exit 1
     fi
 
-    echo "PARSED_ARGS = ${PARSED_ARGS}"
     eval set -- "${PARSED_ARGS}"
 
     while true; do
