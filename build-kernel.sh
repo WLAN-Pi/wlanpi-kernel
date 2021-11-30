@@ -131,11 +131,21 @@ apply_patches()
 
     patches="$(find "${PATCHES_PATH}" -name "*.patch")"
 
+    if [ "${patches}" == "" ]; then
+        log "ok" "No patches to apply"
+        popd >/dev/null
+        return
+    fi
+
     log "ok" "Will apply patches:"
     echo "${patches}"
 
     for patch in "${patches[@]}"; do
-        patch_name="$(basename ${patch})"
+        if [ ! -f "${patch}" ]; then
+            continue
+        fi
+
+        patch_name="$(basename "${patch}")"
         if patch --no-backup-if-mismatch --silent --batch -R --dry-run -p1 -N < "${patch}"; then
             log "warn" "Patch already applied, skipping ${patch_name}"
             continue
