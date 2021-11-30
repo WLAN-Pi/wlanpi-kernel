@@ -13,6 +13,7 @@ KERNEL_URL="https://github.com/raspberrypi/linux.git"
 KERNEL_BRANCH="rpi-5.15.y"
 KERNEL_ARCH="arm"
 KERNEL_DEFCONFIG="bcm2711_defconfig"
+WLANPI_DEFCONFIG="wlanpi_v7l_defconfig"
 KERNEL_FORCE_SYNC="0"
 CLEAN_KERNEL="0"
 NUM_CORES=$(($(nproc)/2))
@@ -78,11 +79,13 @@ process_options()
         export CROSS_COMPILE="arm-linux-gnueabihf-"
         export KERNEL="kernel7l"
         KERNEL_IMAGE="zImage"
+        WLANPI_DEFCONFIG="wlanpi_v7l_defconfig"
     elif [ "${KERNEL_ARCH}" == "arm64" ]; then
         export ARCH="arm64"
         export CROSS_COMPILE="aarch64-linux-gnu-"
         export KERNEL="kernel8"
         KERNEL_IMAGE="Image"
+        WLANPI_DEFCONFIG="wlanpi_v8_defconfig"
     fi
 
     log "ok" "Configs used:"
@@ -164,12 +167,12 @@ apply_patches()
 
 generate_config()
 {
-    cp  "${SCRIPT_PATH}/wlanpi_defconfig" "${KERNEL_PATH}/arch/${ARCH}/configs/"
+    cp  "${SCRIPT_PATH}/${WLANPI_DEFCONFIG}" "${KERNEL_PATH}/arch/${ARCH}/configs/"
 
     pushd "${KERNEL_PATH}" >/dev/null
 
     log "ok" "Customize defconfig"
-    scripts/kconfig/merge_config.sh "${KERNEL_PATH}"/arch/"${ARCH}"/configs/{${KERNEL_DEFCONFIG},wlanpi_defconfig} | tee "${LOG_PATH}"/update-config.log 2>&1
+    scripts/kconfig/merge_config.sh "${KERNEL_PATH}"/arch/"${ARCH}"/configs/{${KERNEL_DEFCONFIG},${WLANPI_DEFCONFIG}} | tee "${LOG_PATH}"/update-config.log 2>&1
 
     if grep -q "Actual value:" "${LOG_PATH}"/update-config.log; then
         log "error" "Error updating defconfig. See above log to check which configs had conflicts."
