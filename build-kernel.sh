@@ -115,7 +115,7 @@ run_all()
 
 build_kernel()
 {
-    pushd "${KERNEL_PATH}"
+    pushd "${KERNEL_PATH}" >/dev/null
 
     log "ok" "Build and package kernel"
     make -j${NUM_CORES} bindeb-pkg ARCH="${ARCH}" CROSS_COMPILE="${CROSS_COMPILE}" DEBFULLNAME="${DEBFULLNAME}" DEBEMAIL="${DEBEMAIL}" | tee "${LOG_PATH}"/packaging.log 2>&1
@@ -127,7 +127,7 @@ build_kernel()
 
 apply_patches()
 {
-    pushd "${KERNEL_PATH}"
+    pushd "${KERNEL_PATH}" >/dev/null
 
     patches="$(find "${PATCHES_PATH}" -name "*.patch")"
 
@@ -167,7 +167,7 @@ generate_config()
 {
     cp  "${SCRIPT_PATH}/wlanpi_defconfig" "${KERNEL_PATH}/arch/${ARCH}/configs/"
 
-    pushd "${KERNEL_PATH}"
+    pushd "${KERNEL_PATH}" >/dev/null
 
     log "ok" "Customize defconfig"
     scripts/kconfig/merge_config.sh "${KERNEL_PATH}"/arch/"${ARCH}"/configs/{${KERNEL_DEFCONFIG},wlanpi_defconfig} | tee "${LOG_PATH}"/update-config.log 2>&1
@@ -188,7 +188,7 @@ download_source()
         git clone --depth=1 -b "${KERNEL_BRANCH}" "${KERNEL_URL}" "${KERNEL_PATH}" | tee "${LOG_PATH}"/clone.log 2>&1
     elif [ "${KERNEL_FORCE_SYNC}" == "1" ]; then
         log "ok" "Fetching new kernel version"
-        pushd "${KERNEL_PATH}"
+        pushd "${KERNEL_PATH}" >/dev/null
 
         git fetch -q --depth 1 origin "${KERNEL_BRANCH}" | tee "${LOG_PATH}"/force-update-fetch.log 2>&1
         git co -B "${KERNEL_BRANCH}" origin/"${KERNEL_BRANCH}" | tee "${LOG_PATH}"/force-update-checkout.log 2>&1
@@ -206,7 +206,7 @@ download_source()
 
 clean_kernel()
 {
-    pushd "${KERNEL_PATH}"
+    pushd "${KERNEL_PATH}" >/dev/null
 
     log "ok" "Reseting kernel to upstream original code"
 
