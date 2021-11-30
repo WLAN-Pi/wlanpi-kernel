@@ -91,7 +91,8 @@ process_options()
             ;;
         * )
             log "error" "Arch ${KERNEL_ARCH} not recognized."
-    fi
+            ;;
+    esac
 
     log "ok" "Configs used:"
     echo "\
