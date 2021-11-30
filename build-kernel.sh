@@ -241,5 +241,5 @@ log()
     echo "$2"
 }
 
-run_all
+run_all | tee "${LOG_PATH}"/full-log.log 2>&1
 
