@@ -17,6 +17,7 @@ WLANPI_DEFCONFIG="wlanpi_v7l_defconfig"
 KERNEL_FORCE_SYNC="0"
 CLEAN_KERNEL="0"
 SKIP_PATCHES="0"
+EXEC_FUNC=""
 NUM_CORES=$(($(nproc)/2))
 DEBFULLNAME="Daniel Finimundi"
 DEBEMAIL="daniel@finimundi.com"
@@ -80,7 +81,11 @@ process_options()
                 usage
                 exit 0
                 ;;
-            -- ) shift; break ;;
+            -- )
+                EXEC_FUNC="$2"
+                shift 2
+                break
+                ;;
             *) usage; exit 1 ;;
         esac
     done
@@ -119,8 +124,6 @@ NUM_CORES="${NUM_CORES}"
 
 run_all()
 {
-    process_options
-
     download_source
 
     if [ "${CLEAN_KERNEL}" == "1" ]; then
@@ -256,5 +259,11 @@ log()
     echo "$2"
 }
 
-run_all | tee "${LOG_PATH}"/full-log.log 2>&1
+process_options
+
+if [ -z "${EXEC_FUNC}" ]; then
+    run_all 2>&1 | tee "${LOG_PATH}"/full-log.log 2>&1
+else
+    eval "${EXEC_FUNC}" 2>&1 | tee "${LOG_PATH}"/func-log.log 2>&1
+fi
 
