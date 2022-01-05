@@ -1,6 +1,6 @@
 #!/bin/bash
 
-PARSED_ARGS=$(getopt -o cfb:j: --long clean,force-sync,branch: --long arch:,git: -- "$@")
+PARSED_ARGS=$(getopt -o cfb:hj: --long clean,force-sync,branch:,help --long arch:,git: -- "$@")
 VALID_ARGS=$?
 
 SCRIPT_PATH="$(dirname $(realpath "$0"))"
@@ -28,7 +28,8 @@ usage()
                     [ --arch ARCH ]
                     [ --git URL ]
                     [ -b | --branch BRANCH ]
-                    [ -j CORES ]"
+                    [ -j CORES ]
+                    [ -h | --help ]"
 }
 
 process_options()
@@ -69,8 +70,12 @@ process_options()
                 esac
                 shift 2
                 ;;
+            -h | --help )
+                usage
+                exit 0
+                ;;
             -- ) shift; break ;;
-            *) usage; break ;;
+            *) usage; exit 1 ;;
         esac
     done
 
