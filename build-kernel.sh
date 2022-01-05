@@ -1,6 +1,6 @@
 #!/bin/bash
 
-PARSED_ARGS=$(getopt -o cfb:hj: --long clean,force-sync,branch:,help --long arch:,git: -- "$@")
+PARSED_ARGS=$(getopt -o cfb:hj: --long clean,force-sync,branch:,help --long arch:,git:,skip-patches -- "$@")
 VALID_ARGS=$?
 
 SCRIPT_PATH="$(dirname $(realpath "$0"))"
@@ -16,6 +16,7 @@ KERNEL_DEFCONFIG="bcm2711_defconfig"
 WLANPI_DEFCONFIG="wlanpi_v7l_defconfig"
 KERNEL_FORCE_SYNC="0"
 CLEAN_KERNEL="0"
+SKIP_PATCHES="0"
 NUM_CORES=$(($(nproc)/2))
 DEBFULLNAME="Daniel Finimundi"
 DEBEMAIL="daniel@finimundi.com"
@@ -29,6 +30,7 @@ usage()
                     [ --git URL ]
                     [ -b | --branch BRANCH ]
                     [ -j CORES ]
+                    [ --skip-patches ]
                     [ -h | --help ]"
 }
 
@@ -61,6 +63,10 @@ process_options()
                 ;;
             -f | --force-sync )
                 KERNEL_FORCE_SYNC="1"
+                shift 1
+                ;;
+            --skip-patches )
+                SKIP_PATCHES="1"
                 shift 1
                 ;;
             -j )
@@ -121,7 +127,10 @@ run_all()
         clean_kernel
     fi
 
-    apply_patches
+    if [ "${SKIP_PATCHES}" != "1" ]; then
+        apply_patches
+    fi
+
     generate_config
     build_kernel
 }
