@@ -7,6 +7,8 @@ SCRIPT_PATH="$(dirname $(realpath "$0"))"
 KERNEL_PATH="${SCRIPT_PATH}/cache/kernel"
 LOG_PATH="${SCRIPT_PATH}/logs"
 PATCHES_PATH="${SCRIPT_PATH}/kernel-patches"
+OUTPUT_PATH="${SCRIPT_PATH}/output"
+DEB_PATH="${SCRIPT_PATH}/debian/wlanpi-kernel"
 
 # Set default values for configurations
 KERNEL_URL="https://github.com/raspberrypi/linux.git"
@@ -94,14 +96,14 @@ process_options()
         arm | armhf )
             export ARCH="arm"
             export CROSS_COMPILE="arm-linux-gnueabihf-"
-            export KERNEL="kernel7l"
+            export KERNEL="kernel7l-wp"
             KERNEL_IMAGE="zImage"
             WLANPI_DEFCONFIG="wlanpi_v7l_defconfig"
             ;;
         arm64 )
             export ARCH="arm64"
             export CROSS_COMPILE="aarch64-linux-gnu-"
-            export KERNEL="kernel8"
+            export KERNEL="kernel8-wp"
             KERNEL_IMAGE="Image"
             WLANPI_DEFCONFIG="wlanpi_v8_defconfig"
             ;;
@@ -136,18 +138,61 @@ run_all()
 
     generate_config
     build_kernel
+    copy_output
+    build_package
+
+    log "ok" "All done, enjoy :)"
 }
 
 build_kernel()
 {
     pushd "${KERNEL_PATH}" >/dev/null
 
-    log "ok" "Build and package kernel"
-    make -j${NUM_CORES} bindeb-pkg ARCH="${ARCH}" CROSS_COMPILE="${CROSS_COMPILE}" DEBFULLNAME="${DEBFULLNAME}" DEBEMAIL="${DEBEMAIL}" | tee "${LOG_PATH}"/packaging.log 2>&1
+    log "ok" "Compile kernel"
+    make -j${NUM_CORES} ARCH="${ARCH}" CROSS_COMPILE="${CROSS_COMPILE}" "${KERNEL_IMAGE}" modules dtbs | tee "${LOG_PATH}"/compilation.log 2>&1
 
     log "ok" "Finished"
 
     popd >/dev/null
+}
+
+copy_output()
+{
+    pushd "${KERNEL_PATH}" >/dev/null
+
+    log "ok" "Copying generated files to output directory"
+
+    mkdir -p "${OUTPUT_PATH}/root"
+    mkdir -p "${OUTPUT_PATH}/boot/overlays"
+
+    env PATH="${PATH}" make -j${NUM_CORES} ARCH="${ARCH}" CROSS_COMPILE="${CROSS_COMPILE}" INSTALL_MOD_PATH="${OUTPUT_PATH}/root" modules_install | tee "${LOG_PATH}"/modules_install.log 2>&1
+
+    cp "${KERNEL_PATH}/arch/${ARCH}/boot/${KERNEL_IMAGE}" "${OUTPUT_PATH}/boot/${KERNEL}.img"
+    cp "${KERNEL_PATH}/arch/${ARCH}/boot/dts/overlays/"*.dtb* "${OUTPUT_PATH}/boot/overlays/"
+    cp "${KERNEL_PATH}/arch/${ARCH}/boot/dts/overlays/README"  "${OUTPUT_PATH}/boot/overlays/"
+    cp "${SCRIPT_PATH}/debian/COPYING.linux" "${OUTPUT_PATH}/boot/"
+    if [ "${ARCH}" == "arm64" ]; then
+        cp "${KERNEL_PATH}"/arch/${ARCH}/boot/dts/broadcom/*.dtb "${OUTPUT_PATH}/boot/"
+    else
+        cp "${KERNEL_PATH}"/arch/${ARCH}/boot/dts/*.dtb "${OUTPUT_PATH}/boot/"
+    fi
+
+    popd >/dev/null
+}
+
+build_package()
+{
+    log "ok" "Building package"
+
+    DATE="$(cd ${KERNEL_PATH}; git show -s --format=%ct HEAD)"
+    RELEASE="$(date -d "@$DATE" -u +1.%Y%m%d)"
+    DEBVER="1:${RELEASE}-1"
+
+    (cd debian; ./gen_bootloader_postinst_preinst.sh)
+    dch "Kernel version ${KERNEL_VERSION}"
+    dch -v "$DEBVER" -D bullseye --force-distribution
+
+    dpkg-buildpackage -us -uc
 }
 
 apply_patches()
@@ -221,6 +266,9 @@ download_source()
             log "error" "Couldn't checkout to new kernel version. Try setting variable CLEAN_KERNEL to reset the workspace"
             exit 3
         fi
+
+        KERNEL_VERSION="$(sed -n "2,4p" "${KERNEL_PATH}/Makefile" | cut -d' ' -f3 | tr '\n' '.' | sed "s/.$/\n/")"
+        log "ok" "Using kernel version ${KERNEL_VERSION}"
 
         popd >/dev/null
     else

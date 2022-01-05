@@ -1,0 +1,5 @@
+output/boot/overlays /boot/overlays
+output/boot/bcm271*.dtb /boot/
+output/boot/kernel8-wp.img /boot/
+output/boot/COPYING.linux /boot/COPYING.linux
+output/root/lib/modules/*v8-wlanpi+ /lib/modules/
