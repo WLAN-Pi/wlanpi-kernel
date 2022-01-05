@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 BOOT_PATH="../output/boot"
 
@@ -6,6 +6,12 @@ if ! [ -d ${BOOT_PATH} ]; then
   printf "Can't find boot dir. Run from debian subdir\n"
   exit 1
 fi
+
+BUILD_ARMHF=$([[ "$1" == *armhf* ]] && echo 1 || echo 0)
+BUILD_ARM64=$([[ "$1" == *arm64* ]] && echo 1 || echo 0)
+KERNEL_IMAGES="$1"
+KERNEL_IMAGES=${KERNEL_IMAGES//armhf/"kernel7l-wp.img"}
+KERNEL_IMAGES=${KERNEL_IMAGES//arm64/"kernel8-wp.img"}
 
 version="$(sed -n "2,4p" ../cache/kernel/Makefile | cut -d' ' -f3 | tr '\n' '.' | sed "s/.$/\n/")"
 
@@ -59,7 +65,7 @@ fi
 
 if [ "\$SKIP_FILES" != "1" ] || [ "\${SKIP_PI4}" = "0" ]; then
 EOF
-for FN in ${BOOT_PATH}/kernel7l.img ${BOOT_PATH}/kernel8.img; do
+for FN in ${BOOT_PATH}/{${KERNEL_IMAGES}}; do
   if [ -f "$FN" ]; then
     FN=${FN#${BOOT_PATH}/}
     cat << EOF >> wlanpi-kernel.postinst
@@ -101,14 +107,24 @@ if [ -f /etc/default/wlanpi-kernel ]; then
   export RPI_INITRD
 fi
 if [ -d "/etc/kernel/preinst.d" ]; then
-  run-parts -v --report --exit-on-error --arg=${version}-v7l+ --arg=/boot/kernel7l.img /etc/kernel/preinst.d
-  run-parts -v --report --exit-on-error --arg=${version}-v8+ --arg=/boot/kernel8.img /etc/kernel/preinst.d
+EOF
+if [ $BUILD_ARMHF -eq 1 ]; then
+cat <<EOF >> wlanpi-kernel.preinst
+  run-parts -v --report --exit-on-error --arg=${version}-v7l+ --arg=/boot/kernel7l-wp.img /etc/kernel/preinst.d
+EOF
+fi
+if [ $BUILD_ARM64 -eq 1 ]; then
+cat <<EOF >> wlanpi-kernel.preinst
+  run-parts -v --report --exit-on-error --arg=${version}-v8+ --arg=/boot/kernel8-wp.img /etc/kernel/preinst.d
+EOF
+fi
+cat <<EOF >> wlanpi-kernel.preinst
 fi
 if [ -d "/etc/kernel/preinst.d/${version}-v7l+" ]; then
-  run-parts -v --report --exit-on-error --arg=${version}-v7l+ --arg=/boot/kernel7l.img /etc/kernel/preinst.d/${version}-v7l+
+  run-parts -v --report --exit-on-error --arg=${version}-v7l+ --arg=/boot/kernel7l-wp.img /etc/kernel/preinst.d/${version}-v7l+
 fi
 if [ -d "/etc/kernel/preinst.d/${version}-v8+" ]; then
-  run-parts -v --report --exit-on-error --arg=${version}-v8+ --arg=/boot/kernel8.img /etc/kernel/preinst.d/${version}-v8+
+  run-parts -v --report --exit-on-error --arg=${version}-v8+ --arg=/boot/kernel8-wp.img /etc/kernel/preinst.d/${version}-v8+
 fi
 EOF
 
@@ -122,14 +138,24 @@ if [ -f /etc/default/wlanpi-kernel ]; then
 
 fi
 if [ -d "/etc/kernel/postinst.d" ]; then
-  run-parts -v --report --exit-on-error --arg=${version}-v7l+ --arg=/boot/kernel7l.img /etc/kernel/postinst.d
-  run-parts -v --report --exit-on-error --arg=${version}-v8+ --arg=/boot/kernel8.img /etc/kernel/postinst.d
+EOF
+if [ $BUILD_ARMHF -eq 1 ]; then
+cat <<EOF >> wlanpi-kernel.postinst
+  run-parts -v --report --exit-on-error --arg=${version}-v7l+ --arg=/boot/kernel7l-wp.img /etc/kernel/postinst.d
+EOF
+fi
+if [ $BUILD_ARM64 -eq 1 ]; then
+cat <<EOF >> wlanpi-kernel.postinst
+  run-parts -v --report --exit-on-error --arg=${version}-v8+ --arg=/boot/kernel8-wp.img /etc/kernel/postinst.d
+EOF
+fi
+cat <<EOF >> wlanpi-kernel.postinst
 fi
 if [ -d "/etc/kernel/postinst.d/${version}-v7l+" ]; then
-  run-parts -v --report --exit-on-error --arg=${version}-v7l+ --arg=/boot/kernel7l.img /etc/kernel/postinst.d/${version}-v7l+
+  run-parts -v --report --exit-on-error --arg=${version}-v7l+ --arg=/boot/kernel7l-wp.img /etc/kernel/postinst.d/${version}-v7l+
 fi
 if [ -d "/etc/kernel/postinst.d/${version}-v8+" ]; then
-  run-parts -v --report --exit-on-error --arg=${version}-v8+ --arg=/boot/kernel8.img /etc/kernel/postinst.d/${version}-v8+
+  run-parts -v --report --exit-on-error --arg=${version}-v8+ --arg=/boot/kernel8-wp.img /etc/kernel/postinst.d/${version}-v8+
 fi
 EOF
 
@@ -171,14 +197,24 @@ if [ -f /etc/default/wlanpi-kernel ]; then
 
 fi
 if [ -d "/etc/kernel/prerm.d" ]; then
-  run-parts -v --report --exit-on-error --arg=${version}-v7l+ --arg=/boot/kernel7l.img /etc/kernel/prerm.d
-  run-parts -v --report --exit-on-error --arg=${version}-v8+ --arg=/boot/kernel8.img /etc/kernel/prerm.d
+EOF
+if [ $BUILD_ARMHF -eq 1 ]; then
+cat <<EOF >> wlanpi-kernel.prerm
+  run-parts -v --report --exit-on-error --arg=${version}-v7l+ --arg=/boot/kernel7l-wp.img /etc/kernel/prerm.d
+EOF
+fi
+if [ $BUILD_ARM64 -eq 1 ]; then
+cat <<EOF >> wlanpi-kernel.prerm
+  run-parts -v --report --exit-on-error --arg=${version}-v8+ --arg=/boot/kernel8-wp.img /etc/kernel/prerm.d
+EOF
+fi
+cat <<EOF >> wlanpi-kernel.prerm
 fi
 if [ -d "/etc/kernel/prerm.d/${version}-v7l+" ]; then
-  run-parts -v --report --exit-on-error --arg=${version}-v7l+ --arg=/boot/kernel7l.img /etc/kernel/prerm.d/${version}-v7l+
+  run-parts -v --report --exit-on-error --arg=${version}-v7l+ --arg=/boot/kernel7l-wp.img /etc/kernel/prerm.d/${version}-v7l+
 fi
 if [ -d "/etc/kernel/prerm.d/${version}-v8+" ]; then
-  run-parts -v --report --exit-on-error --arg=${version}-v8+ --arg=/boot/kernel8.img /etc/kernel/prerm.d/${version}-v8+
+  run-parts -v --report --exit-on-error --arg=${version}-v8+ --arg=/boot/kernel8-wp.img /etc/kernel/prerm.d/${version}-v8+
 fi
 EOF
 
@@ -192,14 +228,24 @@ if [ -f /etc/default/wlanpi-kernel ]; then
 
 fi
 if [ -d "/etc/kernel/postrm.d" ]; then
-  run-parts -v --report --exit-on-error --arg=${version}-v7l+ --arg=/boot/kernel7l.img /etc/kernel/postrm.d
-  run-parts -v --report --exit-on-error --arg=${version}-v8+ --arg=/boot/kernel8.img /etc/kernel/postrm.d
+EOF
+if [ $BUILD_ARMHF -eq 1 ]; then
+cat <<EOF >> wlanpi-kernel.postrm
+  run-parts -v --report --exit-on-error --arg=${version}-v7l+ --arg=/boot/kernel7l-wp.img /etc/kernel/postrm.d
+EOF
+fi
+if [ $BUILD_ARM64 -eq 1 ]; then
+cat <<EOF >> wlanpi-kernel.postrm
+  run-parts -v --report --exit-on-error --arg=${version}-v8+ --arg=/boot/kernel8-wp.img /etc/kernel/postrm.d
+EOF
+fi
+cat <<EOF >> wlanpi-kernel.postrm
 fi
 if [ -d "/etc/kernel/postrm.d/${version}-v7l+" ]; then
-  run-parts -v --report --exit-on-error --arg=${version}-v7l+ --arg=/boot/kernel7l.img /etc/kernel/postrm.d/${version}-v7l+
+  run-parts -v --report --exit-on-error --arg=${version}-v7l+ --arg=/boot/kernel7l-wp.img /etc/kernel/postrm.d/${version}-v7l+
 fi
 if [ -d "/etc/kernel/postrm.d/${version}-v8+" ]; then
-  run-parts -v --report --exit-on-error --arg=${version}-v8+ --arg=/boot/kernel8.img /etc/kernel/postrm.d/${version}-v8+
+  run-parts -v --report --exit-on-error --arg=${version}-v8+ --arg=/boot/kernel8-wp.img /etc/kernel/postrm.d/${version}-v8+
 fi
 EOF
 

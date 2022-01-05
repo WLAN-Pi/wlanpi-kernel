@@ -1,0 +1,5 @@
+output/boot/overlays /boot/overlays
+output/boot/*.dtb /boot/
+output/boot/kernel*-wp.img /boot/
+output/boot/COPYING.linux /boot/COPYING.linux
+output/root/lib/modules /lib

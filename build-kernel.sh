@@ -92,7 +92,22 @@ process_options()
         esac
     done
 
-    case "${KERNEL_ARCH}" in
+    log "ok" "Configs used:"
+    echo "\
+    KERNEL_URL="${KERNEL_URL}"
+    KERNEL_BRANCH="${KERNEL_BRANCH}"
+    KERNEL_ARCH="${KERNEL_ARCH}"
+    KERNEL_DEFCONFIG="${KERNEL_DEFCONFIG}"
+    KERNEL_FORCE_SYNC="${KERNEL_FORCE_SYNC}"
+    CLEAN_KERNEL="${CLEAN_KERNEL}"
+    NUM_CORES="${NUM_CORES}"
+    "
+}
+
+process_arch()
+{
+    current_arch="$1"
+    case "${current_arch}" in
         arm | armhf )
             export ARCH="arm"
             export CROSS_COMPILE="arm-linux-gnueabihf-"
@@ -108,37 +123,43 @@ process_options()
             WLANPI_DEFCONFIG="wlanpi_v8_defconfig"
             ;;
         * )
-            log "error" "Arch ${KERNEL_ARCH} not recognized."
+            log "error" "Arch ${current_arch} not recognized."
             ;;
     esac
-
-    log "ok" "Configs used:"
-    echo "\
-KERNEL_URL="${KERNEL_URL}"
-KERNEL_BRANCH="${KERNEL_BRANCH}"
-KERNEL_ARCH="${KERNEL_ARCH}"
-KERNEL_DEFCONFIG="${KERNEL_DEFCONFIG}"
-KERNEL_FORCE_SYNC="${KERNEL_FORCE_SYNC}"
-CLEAN_KERNEL="${CLEAN_KERNEL}"
-NUM_CORES="${NUM_CORES}"
-"
 }
 
 run_all()
 {
     download_source
 
-    if [ "${CLEAN_KERNEL}" == "1" ]; then
-        clean_kernel
-    fi
+    case "${KERNEL_ARCH}" in
+        *,*)
+            KERNEL_ARCH="${KERNEL_ARCH//,/ }"
+            log "ok" "Compiling multiple archs: ${KERNEL_ARCH}"
+            ;;
+        *)
+            log "ok" "Compiling KERNEL_ARCH = ${KERNEL_ARCH}"
+            ;;
+    esac
 
-    if [ "${SKIP_PATCHES}" != "1" ]; then
-        apply_patches
-    fi
+    for current_arch in ${KERNEL_ARCH}; do
+        process_arch "${current_arch}"
+        echo "CURRENT ARCH = ${ARCH}"
+        continue
 
-    generate_config
-    build_kernel
-    copy_output
+        if [ "${CLEAN_KERNEL}" == "1" ]; then
+            clean_kernel
+        fi
+
+        if [ "${SKIP_PATCHES}" != "1" ]; then
+            apply_patches
+        fi
+
+        generate_config
+        build_kernel
+        copy_output
+    done
+
     build_package
 
     log "ok" "All done, enjoy :)"
@@ -184,13 +205,16 @@ build_package()
 {
     log "ok" "Building package"
 
+    if [ -z "${KERNEL_VERSION}" ]; then
+        KERNEL_VERSION="$(sed -n "2,4p" "${KERNEL_PATH}/Makefile" | cut -d' ' -f3 | tr '\n' '.' | sed "s/.$/\n/")"
+    fi
+
     DATE="$(cd ${KERNEL_PATH}; git show -s --format=%ct HEAD)"
     RELEASE="$(date -d "@$DATE" -u +1.%Y%m%d)"
     DEBVER="1:${RELEASE}-1"
 
-    (cd debian; ./gen_bootloader_postinst_preinst.sh)
-    dch "Kernel version ${KERNEL_VERSION}"
-    dch -v "$DEBVER" -D bullseye --force-distribution
+    (cd debian; ./gen_kernel_preinst_postinst.sh "${KERNEL_ARCH// /,}")
+    dch -v "$DEBVER" -D bullseye --force-distribution "Kernel version ${KERNEL_VERSION}"
 
     dpkg-buildpackage -us -uc
 }
@@ -312,6 +336,7 @@ process_options
 if [ -z "${EXEC_FUNC}" ]; then
     run_all 2>&1 | tee "${LOG_PATH}"/full-log.log 2>&1
 else
+    process_arch "${KERNEL_ARCH%%,*}"
     eval "${EXEC_FUNC}" 2>&1 | tee "${LOG_PATH}"/func-log.log 2>&1
 fi
 
