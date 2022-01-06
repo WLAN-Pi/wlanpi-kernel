@@ -1,6 +1,6 @@
 #!/bin/bash
 
-PARSED_ARGS=$(getopt -o cfb:hj: --long clean,force-sync,branch:,help --long arch:,git:,skip-patches -- "$@")
+PARSED_ARGS=$(getopt -o cfb:hj: --long clean,force-sync,branch:,help --long arch:,git:,skip-patches,deb-arch: -- "$@")
 VALID_ARGS=$?
 
 SCRIPT_PATH="$(dirname $(realpath "$0"))"
@@ -19,6 +19,7 @@ WLANPI_DEFCONFIG="wlanpi_v7l_defconfig"
 KERNEL_FORCE_SYNC="0"
 CLEAN_KERNEL="0"
 SKIP_PATCHES="0"
+DEB_ARCH="arm"
 EXEC_FUNC=""
 NUM_CORES=$(($(nproc)/2))
 DEBFULLNAME="Daniel Finimundi"
@@ -34,6 +35,7 @@ usage()
                     [ -b | --branch BRANCH ]
                     [ -j CORES ]
                     [ --skip-patches ]
+                    [ --deb-arch ARCH ]
                     [ -h | --help ]"
 }
 
@@ -71,6 +73,10 @@ process_options()
             --skip-patches )
                 SKIP_PATCHES="1"
                 shift 1
+                ;;
+            --deb-arch )
+                DEB_ARCH="$2"
+                shift 2
                 ;;
             -j )
                 case "$2" in
@@ -204,7 +210,7 @@ copy_output()
 
 prepare_build_package()
 {
-    log "ok" "Building package"
+    log "ok" "Prepare Debianization files for package build"
 
     if [ -z "${KERNEL_VERSION}" ]; then
         KERNEL_VERSION="$(sed -n "2,4p" "${KERNEL_PATH}/Makefile" | cut -d' ' -f3 | tr '\n' '.' | sed "s/.$/\n/")"
@@ -220,7 +226,17 @@ prepare_build_package()
 
 build_package()
 {
-    sbuild-debian-package/build.sh
+    log "ok" "Syncing sbuild submodule"
+    git submodule update --init --recursive
+
+    log "ok" "Build Debian package for (${DEB_ARCH})"
+
+    # Split archs if multiple
+    DEB_ARCH="${DEB_ARCH//,/ }"
+
+    for current_deb_arch in ${DEB_ARCH}; do
+        INPUTS_ARCH=${current_deb_arch} INPUTS_DISTRO="bullseye" sbuild-debian-package/build.sh
+    done
 }
 
 apply_patches()
