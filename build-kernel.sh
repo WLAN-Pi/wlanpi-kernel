@@ -160,6 +160,7 @@ run_all()
         copy_output
     done
 
+    prepare_build_package
     build_package
 
     log "ok" "All done, enjoy :)"
@@ -201,7 +202,7 @@ copy_output()
     popd >/dev/null
 }
 
-build_package()
+prepare_build_package()
 {
     log "ok" "Building package"
 
@@ -215,8 +216,11 @@ build_package()
 
     (cd debian; ./gen_kernel_preinst_postinst.sh "${KERNEL_ARCH// /,}")
     dch -v "$DEBVER" -D bullseye --force-distribution "Kernel version ${KERNEL_VERSION}"
+}
 
-    dpkg-buildpackage -us -uc
+build_package()
+{
+    sbuild-debian-package/build.sh
 }
 
 apply_patches()

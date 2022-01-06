@@ -13,8 +13,9 @@ Vcs-Browser: https://github.com/WLAN-Pi/wlanpi-kernel
 
 Package: wlanpi-kernel
 Section: kernel
-Architecture: arm64
+Architecture: armhf arm64
 Depends: ${misc:Depends}
+Replaces: raspberrypi-kernel
 Provides: linux-image, wireguard-modules (= 1.0.0)
 Description: WLAN Pi custom kernel
  This package contains the WLAN Pi Linux kernel.
