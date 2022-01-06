@@ -61,8 +61,6 @@ printf "mkdir -p /usr/share/rpikernelhack/overlays\n" >> wlanpi-kernel.preinst
 printf "mkdir -p /boot/overlays\n" >> wlanpi-kernel.preinst
 
 cat <<EOF >> wlanpi-kernel.postinst
-fi
-
 if [ "\$SKIP_FILES" != "1" ] || [ "\${SKIP_PI4}" = "0" ]; then
 EOF
 for FN in ${BOOT_PATH}/{${KERNEL_IMAGES}}; do
@@ -185,7 +183,7 @@ printf "#DEBHELPER#\n" | tee -a wlanpi-kernel.postinst >> wlanpi-kernel.preinst
 
 printf "#!/bin/sh\n" > wlanpi-kernel.prerm
 printf "#!/bin/sh\n" > wlanpi-kernel.postrm
-printf "#!/bin/sh\n" > wlanpi-kernel-headers.postinst
+#printf "#!/bin/sh\n" > wlanpi-kernel-headers.postinst
 
 cat <<EOF >> wlanpi-kernel.prerm
 if [ -f /etc/default/wlanpi-kernel ]; then
@@ -273,4 +271,4 @@ EOF
 
 printf "#DEBHELPER#\n" >> wlanpi-kernel.prerm
 printf "#DEBHELPER#\n" >> wlanpi-kernel.postrm
-printf "#DEBHELPER#\n" >> wlanpi-kernel-headers.postinst
+#printf "#DEBHELPER#\n" >> wlanpi-kernel-headers.postinst
