@@ -235,7 +235,7 @@ build_package()
     DEB_ARCH="${DEB_ARCH//,/ }"
 
     for current_deb_arch in ${DEB_ARCH}; do
-        INPUTS_ARCH=${current_deb_arch} INPUTS_DISTRO="bullseye" sbuild-debian-package/build.sh
+        INPUTS_ARCH=${current_deb_arch} INPUTS_DISTRO="bullseye" INPUTS_RUN_LINTIAN="false" sbuild-debian-package/build.sh
     done
 }
 
