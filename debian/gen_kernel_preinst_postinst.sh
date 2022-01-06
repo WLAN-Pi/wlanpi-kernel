@@ -7,11 +7,24 @@ if ! [ -d ${BOOT_PATH} ]; then
   exit 1
 fi
 
-BUILD_ARMHF=$([[ "$1" == *armhf* ]] && echo 1 || echo 0)
-BUILD_ARM64=$([[ "$1" == *arm64* ]] && echo 1 || echo 0)
+BUILD_ARMHF="0"
+BUILD_ARM64="0"
+case "$1" in
+    *armhf*)
+        BUILD_ARMHF="1"
+        ;;&
+    *arm64*)
+        BUILD_ARM64="1"
+        ;;
+esac
+
 KERNEL_IMAGES="$1"
-KERNEL_IMAGES=${KERNEL_IMAGES//armhf/"kernel7l-wp.img"}
-KERNEL_IMAGES=${KERNEL_IMAGES//arm64/"kernel8-wp.img"}
+KERNEL_IMAGES=$(echo "${KERNEL_IMAGES}" | sed "s/armhf/${BOOT_PATH//\//\\\/}\/kernel7l-wp.img/")
+KERNEL_IMAGES=$(echo "${KERNEL_IMAGES}" | sed "s/arm64/${BOOT_PATH//\//\\\/}\/kernel8-wp.img/")
+KERNEL_IMAGES=${KERNEL_IMAGES//,/ }
+echo "KERNEL_IMAGES = ${KERNEL_IMAGES}"
+echo "BUILD_ARMHF = ${BUILD_ARMHF}"
+echo "BUILD_ARM64 = ${BUILD_ARM64}"
 
 version="$(sed -n "2,4p" ../cache/kernel/Makefile | cut -d' ' -f3 | tr '\n' '.' | sed "s/.$/\n/")"
 
@@ -63,9 +76,9 @@ printf "mkdir -p /boot/overlays\n" >> wlanpi-kernel.preinst
 cat <<EOF >> wlanpi-kernel.postinst
 if [ "\$SKIP_FILES" != "1" ] || [ "\${SKIP_PI4}" = "0" ]; then
 EOF
-for FN in ${BOOT_PATH}/{${KERNEL_IMAGES}}; do
+for FN in ${KERNEL_IMAGES}; do
   if [ -f "$FN" ]; then
-    FN=${FN#${BOOT_PATH}/}
+    FN=${FN##${BOOT_PATH}/}
     cat << EOF >> wlanpi-kernel.postinst
   if [ -f /usr/share/rpikernelhack/$FN ]; then
     rm -f /boot/$FN
@@ -73,8 +86,8 @@ for FN in ${BOOT_PATH}/{${KERNEL_IMAGES}}; do
     sync
   fi
 EOF
-  fi
   printf "dpkg-divert --package rpikernelhack --rename --divert /usr/share/rpikernelhack/%s /boot/%s\n" "$FN" "$FN" >> wlanpi-kernel.preinst
+  fi
 done
 
 cat <<EOF >> wlanpi-kernel.postinst
