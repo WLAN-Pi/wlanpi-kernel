@@ -212,13 +212,14 @@ prepare_build_package()
 {
     log "ok" "Prepare Debianization files for package build"
 
-    if [ -z "${KERNEL_VERSION}" ]; then
-        KERNEL_VERSION="$(sed -n "2,4p" "${KERNEL_PATH}/Makefile" | cut -d' ' -f3 | tr '\n' '.' | sed "s/.$/\n/")"
-    fi
+    pushd "${KERNEL_PATH}" >/dev/null
+    KERNEL_VERSION="$(make ARCH="${ARCH}" CROSS_COMPILE="${CROSS_COMPILE}" kernelversion)"
+    log "ok" "Using kernel version ${KERNEL_VERSION}"
+    popd >/dev/null
 
     DATE="$(cd ${KERNEL_PATH}; git show -s --format=%ct HEAD)"
     RELEASE="$(date -d "@$DATE" -u +1.%Y%m%d)"
-    DEBVER="1:${RELEASE}-1"
+    DEBVER="${RELEASE}-1"
 
     (cd debian; ./gen_kernel_preinst_postinst.sh "${KERNEL_ARCH// /,}")
     dch -v "$DEBVER" -D bullseye --force-distribution "Kernel version ${KERNEL_VERSION}"
@@ -316,9 +317,6 @@ download_source()
             log "error" "Couldn't checkout to new kernel version. Try executing again with --clean arg to reset the workspace"
             exit 3
         fi
-
-        KERNEL_VERSION="$(sed -n "2,4p" "${KERNEL_PATH}/Makefile" | cut -d' ' -f3 | tr '\n' '.' | sed "s/.$/\n/")"
-        log "ok" "Using kernel version ${KERNEL_VERSION}"
 
         popd >/dev/null
     else
