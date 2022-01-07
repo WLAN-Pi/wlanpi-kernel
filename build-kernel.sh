@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Request sudo
+sudo true
+
 PARSED_ARGS=$(getopt -o cfb:hj: --long clean,force-sync,branch:,help --long arch:,git:,skip-patches,deb-arch: -- "$@")
 VALID_ARGS=$?
 
@@ -22,8 +25,8 @@ SKIP_PATCHES="0"
 DEB_ARCH="armhf"
 EXEC_FUNC=""
 NUM_CORES=$(($(nproc)/2))
-DEBFULLNAME="Daniel Finimundi"
-DEBEMAIL="daniel@finimundi.com"
+export DEBFULLNAME="Daniel Finimundi"
+export DEBEMAIL="daniel@finimundi.com"
 
 mkdir -p "${LOG_PATH}"
 
