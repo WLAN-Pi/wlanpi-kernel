@@ -138,10 +138,12 @@ run_all()
 {
     download_source
 
+    MULTI_ARCH="0"
     case "${KERNEL_ARCH}" in
         *,*)
             KERNEL_ARCH="${KERNEL_ARCH//,/ }"
             log "ok" "Compiling multiple archs: ${KERNEL_ARCH}"
+            MULTI_ARCH="1"
             ;;
         *)
             log "ok" "Compiling KERNEL_ARCH = ${KERNEL_ARCH}"
@@ -150,10 +152,8 @@ run_all()
 
     for current_arch in ${KERNEL_ARCH}; do
         process_arch "${current_arch}"
-        echo "CURRENT ARCH = ${ARCH}"
-        continue
 
-        if [ "${CLEAN_KERNEL}" == "1" ]; then
+        if [ "${CLEAN_KERNEL}" == "1" ] && [ "${MULTI_ARCH}" == "1" ]; then
             clean_kernel
         fi
 
@@ -303,11 +303,17 @@ download_source()
         log "ok" "Fetching new kernel version on branch ${KERNEL_BRANCH}"
         pushd "${KERNEL_PATH}" >/dev/null
 
+        git remote set-branches origin "${KERNEL_BRANCH}"
         git fetch -q --depth 1 origin "${KERNEL_BRANCH}" | tee "${LOG_PATH}"/force-update-fetch.log 2>&1
+
+        if [ "${CLEAN_KERNEL}" == "1" ]; then
+            clean_kernel
+        fi
+
         git co -B "${KERNEL_BRANCH}" origin/"${KERNEL_BRANCH}" | tee "${LOG_PATH}"/force-update-checkout.log 2>&1
 
         if [ $? -ne 0 ]; then
-            log "error" "Couldn't checkout to new kernel version. Try setting variable CLEAN_KERNEL to reset the workspace"
+            log "error" "Couldn't checkout to new kernel version. Try executing again with --clean arg to reset the workspace"
             exit 3
         fi
 
