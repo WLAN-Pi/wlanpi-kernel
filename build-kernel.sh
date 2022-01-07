@@ -12,14 +12,14 @@ DEB_PATH="${SCRIPT_PATH}/debian/wlanpi-kernel"
 
 # Set default values for configurations
 KERNEL_URL="https://github.com/raspberrypi/linux.git"
-KERNEL_BRANCH="rpi-5.15.y"
-KERNEL_ARCH="arm"
+KERNEL_BRANCH="rpi-5.16.y"
+KERNEL_ARCH="arm64"
 KERNEL_DEFCONFIG="bcm2711_defconfig"
 WLANPI_DEFCONFIG="wlanpi_v7l_defconfig"
 KERNEL_FORCE_SYNC="0"
 CLEAN_KERNEL="0"
 SKIP_PATCHES="0"
-DEB_ARCH="arm"
+DEB_ARCH="armhf"
 EXEC_FUNC=""
 NUM_CORES=$(($(nproc)/2))
 DEBFULLNAME="Daniel Finimundi"
