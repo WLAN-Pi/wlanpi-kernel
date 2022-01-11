@@ -18,6 +18,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
+      - name: Install dependencies
+        run: |
+          sudo apt update -yqq
+          sudo apt install -yqq --no-install-recommends \
+                git bc bison flex libssl-dev make libc6-dev libncurses5-dev
+          sudo apt install -yqq --no-install-recommends \
+                crossbuild-essential-armhf crossbuild-essential-arm64
+
       - name: Build kernel
         id: build-kernel
         run: |
