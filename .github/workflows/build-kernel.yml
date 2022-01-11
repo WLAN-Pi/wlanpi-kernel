@@ -1,0 +1,39 @@
+name: Build kernel
+
+on:
+  # Allow manual runs of workflow from Actions tab
+  workflow_dispatch:
+
+  schedule:
+    - cron: '29 4 * * *'
+  push:
+    branches:
+      - force-build
+
+jobs:
+  build:
+    runs-on: 'ubuntu-20.04'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Build kernel
+        id: build-kernel
+        run: |
+          ./build-kernel.sh --arch=arm64 --deb-arch=armhf -jX --skip-patches
+
+      - name: Upload kernel
+        uses: actions/upload-artifact@v2
+        with:
+          name: wlanpi-kernel
+          path: ${{ steps.build-kernel.outputs.deb-package }}
+
+      - name: Upload package to packagecloud
+        uses: danielmundi/upload-packagecloud@main
+        with:
+          package-name: ${{ steps.build-kernel.outputs.deb-package }}
+          packagecloud-username: wlanpi
+          packagecloud-repo: dev
+          packagecloud-distrib: raspbian/bullseye
+          packagecloud-token: ${{ secrets.PACKAGECLOUD_TOKEN }}
