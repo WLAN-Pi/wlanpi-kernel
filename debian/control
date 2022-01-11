@@ -1,0 +1,21 @@
+Source: wlanpi-kernel
+Priority: optional
+Maintainer: Daniel Finimundi <daniel@finimundi.com>
+Build-Depends: debhelper (>= 10),
+ bc, flex, bison, libssl-dev, rsync,
+ gcc-aarch64-linux-gnu [!arm64 !armhf],
+ gcc-arm-linux-gnueabihf [!armhf],
+Standards-Version: 3.9.8
+Section: libs
+Homepage: https://github.com/WLAN-Pi/wlanpi-kernel
+Vcs-Git: git@github.com:WLAN-Pi/wlanpi-kernel.git
+Vcs-Browser: https://github.com/WLAN-Pi/wlanpi-kernel
+
+Package: wlanpi-kernel
+Section: kernel
+Architecture: armhf arm64
+Depends: ${misc:Depends}
+Replaces: raspberrypi-kernel
+Provides: linux-image, wireguard-modules (= 1.0.0)
+Description: WLAN Pi custom kernel
+ This package contains the WLAN Pi Linux kernel.

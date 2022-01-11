@@ -1,0 +1,37 @@
+#!/usr/bin/make -f
+# -*- makefile -*-
+# Sample debian/rules that uses debhelper.
+# This file was originally written by Joey Hess and Craig Small.
+# As a special exception, when this file is copied by dh-make into a
+# dh-make output file, you may use that output file without restriction.
+# This special exception was added by Craig Small in version 0.37 of dh-make.
+
+# Uncomment this to turn on verbose mode.
+export DH_VERBOSE=1
+
+include /usr/share/dpkg/architecture.mk
+
+DEB_PATH=debian/wlanpi-kernel
+
+%:
+	dh $@
+
+override_dh_auto_install:
+	mkdir -p \
+		$(DEB_PATH)/boot \
+		$(DEB_PATH)/lib/modules
+	cp -r output/boot/overlays $(DEB_PATH)/boot
+	cp output/boot/bcm271*.dtb $(DEB_PATH)/boot
+	cp output/boot/kernel8-wp.img $(DEB_PATH)/boot
+	cp output/boot/COPYING.linux $(DEB_PATH)/boot
+	cp -r output/root/lib/modules/*v8-wlanpi+ $(DEB_PATH)/lib/modules
+	dh_auto_install
+
+override_dh_fixperms:
+	dh_fixperms
+
+override_dh_strip:
+	# don't strip anything
+
+override_dh_shlibdeps:
+	# this is not happy on armhf, let's just skip it
