@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
 
   schedule:
-    - cron: '29 4 * * *'
+    - cron: '29 4 1,15 * *'
   push:
     branches:
       - force-build
