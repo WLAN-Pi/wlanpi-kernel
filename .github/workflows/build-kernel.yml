@@ -34,7 +34,7 @@ jobs:
       - name: Upload kernel
         uses: actions/upload-artifact@v2
         with:
-          name: wlanpi-kernel
+          name: wlanpi-kernel-${{ steps.build-kernel.outputs.package-version }}
           path: ${{ steps.build-kernel.outputs.deb-package }}
 
       - name: Upload package to packagecloud
