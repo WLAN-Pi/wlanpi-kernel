@@ -226,6 +226,8 @@ prepare_build_package()
 
     (cd debian; ./gen_kernel_preinst_postinst.sh "${KERNEL_ARCH// /,}")
     dch -v "$DEBVER" -D bullseye --force-distribution "Kernel version ${KERNEL_VERSION}"
+
+    echo "::set-output name=package-version::${DEBVER}"
 }
 
 build_package()

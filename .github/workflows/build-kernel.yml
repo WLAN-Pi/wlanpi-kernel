@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
 
   schedule:
-    - cron: '29 4 * * *'
+    - cron: '29 4 1,15 * *'
   push:
     branches:
       - force-build
@@ -20,10 +20,10 @@ jobs:
 
       - name: Install dependencies
         run: |
-          sudo apt update -yqq
-          sudo apt install -yqq --no-install-recommends \
-                git bc bison flex libssl-dev make libc6-dev libncurses5-dev
-          sudo apt install -yqq --no-install-recommends \
+          sudo apt-get update -yqq
+          sudo apt-get install -yqq --no-install-recommends \
+                git bc bison flex libssl-dev make libc6-dev libncurses5-dev devscripts
+          sudo apt-get install -yqq --no-install-recommends \
                 crossbuild-essential-armhf crossbuild-essential-arm64
 
       - name: Build kernel
@@ -34,7 +34,7 @@ jobs:
       - name: Upload kernel
         uses: actions/upload-artifact@v2
         with:
-          name: wlanpi-kernel
+          name: wlanpi-kernel-${{ steps.build-kernel.outputs.package-version }}
           path: ${{ steps.build-kernel.outputs.deb-package }}
 
       - name: Upload package to packagecloud
@@ -45,3 +45,16 @@ jobs:
           packagecloud-repo: dev
           packagecloud-distrib: raspbian/bullseye
           packagecloud-token: ${{ secrets.PACKAGECLOUD_TOKEN }}
+
+  slack-workflow-status:
+    if: always()
+    name: Post Workflow Status to Slack
+    needs:
+      - build
+    runs-on: 'ubuntu-20.04'
+    steps:
+      - name: Slack Workflow Notification
+        uses: Gamesight/slack-workflow-status@master
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          slack_webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
