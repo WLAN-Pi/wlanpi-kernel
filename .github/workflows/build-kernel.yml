@@ -43,7 +43,7 @@ jobs:
           package-name: ${{ steps.build-kernel.outputs.deb-package }}
           packagecloud-username: wlanpi
           packagecloud-repo: dev
-          packagecloud-distrib: raspbian/bullseye
+          packagecloud-distrib: debian/bullseye
           packagecloud-token: ${{ secrets.PACKAGECLOUD_TOKEN }}
 
   slack-workflow-status:
