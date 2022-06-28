@@ -29,7 +29,7 @@ jobs:
       - name: Build kernel
         id: build-kernel
         run: |
-          ./build-kernel.sh --arch=arm64 --deb-arch=armhf -jX --skip-patches
+          ./build-kernel.sh --arch=arm64 --deb-arch=arm64 -jX --skip-patches
 
       - name: Upload kernel
         uses: actions/upload-artifact@v2
@@ -38,12 +38,13 @@ jobs:
           path: ${{ steps.build-kernel.outputs.deb-package }}
 
       - name: Upload package to packagecloud
+        if: ${{ github.event.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
         uses: danielmundi/upload-packagecloud@main
         with:
           package-name: ${{ steps.build-kernel.outputs.deb-package }}
           packagecloud-username: wlanpi
           packagecloud-repo: dev
-          packagecloud-distrib: raspbian/bullseye
+          packagecloud-distrib: debian/bullseye
           packagecloud-token: ${{ secrets.PACKAGECLOUD_TOKEN }}
 
   slack-workflow-status:
