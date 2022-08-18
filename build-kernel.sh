@@ -260,7 +260,7 @@ apply_patches()
     log "ok" "Will apply patches:"
     echo "${patches}"
 
-    for patch in "${patches[@]}"; do
+    for patch in ${patches[@]}; do
         if [ ! -f "${patch}" ]; then
             continue
         fi
