@@ -1,6 +1,7 @@
 Source: wlanpi-kernel
 Priority: optional
 Maintainer: Daniel Finimundi <daniel@finimundi.com>
+Uploaders: 
 Build-Depends: debhelper (>= 10),
  bc, flex, bison, libssl-dev, rsync,
  gcc-aarch64-linux-gnu [!arm64 !armhf],
