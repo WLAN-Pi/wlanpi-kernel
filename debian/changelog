@@ -1,3 +1,9 @@
+wlanpi-kernel (0.2) bullseye; urgency=medium
+
+  * Remove Jumbo frame support
+
+ -- Jiri Brejcha <jirka@jiribrejcha.net>  Fri, 07 Oct 2022 10:01:01 +0100
+
 wlanpi-kernel (0.1-1) bullseye; urgency=medium
 
   * Initial release.
