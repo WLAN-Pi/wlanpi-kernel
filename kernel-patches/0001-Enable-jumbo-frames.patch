@@ -1,5 +1,5 @@
-Date: Fri, 07 Oct 2022 01:38:00 +0000
-Subject: [PATCH] Enable jumbo frames
+Date: Fri, 07 Oct 2022
+Subject: [PATCH] enable jumbo frames
 
 ---
  drivers/net/ethernet/broadcom/genet/bcmgenet.c | 2 +-
@@ -8,10 +8,10 @@ Subject: [PATCH] Enable jumbo frames
  3 files changed, 5 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-index a06354959eae..b3a802360818 100644
+index 821596627d76..26849197ffec 100644
 --- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
 +++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-@@ -52,7 +52,7 @@
+@@ -56,7 +56,7 @@
  #define GENET_Q16_TX_BD_CNT	\
  	(TOTAL_DESC - priv->hw_params->tx_queues * priv->hw_params->tx_bds_per_q)
  
@@ -28,23 +28,27 @@ index 41a518336673..28cac902cb77 100644
  /*
   * According to 802.3ac, the packet can be 4 bytes longer. --Klika Jan
   */
+-#define VLAN_ETH_DATA_LEN	1500	/* Max. octets in payload	 */
 -#define VLAN_ETH_FRAME_LEN	1518	/* Max. octets in frame sans FCS */
++#define VLAN_ETH_DATA_LEN	1500	/* Max. octets in payload	 */
 +#define VLAN_ETH_FRAME_LEN	9018	/* Max. octets in frame sans FCS */
  
  #define VLAN_MAX_DEPTH	8		/* Max. number of nested VLAN tags parsed */
  
 diff --git a/include/uapi/linux/if_ether.h b/include/uapi/linux/if_ether.h
-index 5f589c7a8382..fa71dc067e81 100644
+index f6ceb2e63d1e..468f4190a796 100644
 --- a/include/uapi/linux/if_ether.h
 +++ b/include/uapi/linux/if_ether.h
 @@ -33,8 +33,8 @@
  #define ETH_TLEN	2		/* Octets in ethernet type field */
  #define ETH_HLEN	14		/* Total octets in header.	 */
  #define ETH_ZLEN	60		/* Min. octets in frame sans FCS */
+-#define ETH_DATA_LEN	1500		/* Max. octets in payload	 */
 -#define ETH_FRAME_LEN	1514		/* Max. octets in frame sans FCS */
-+#define ETH_FRAME_LEN	9014		/* Max. octets in frame sans FCS */
++#define ETH_DATA_LEN	1500		/* Max. octets in payload	 */
++#define ETH_FRAME_LEN	9018		/* Max. octets in frame sans FCS */
  #define ETH_FCS_LEN	4		/* Octets in the FCS		 */
  
  #define ETH_MIN_MTU	68		/* Min IPv4 MTU per RFC791	*/
 -- 
-2.25.1
+2.29.2
