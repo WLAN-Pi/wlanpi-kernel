@@ -1,3 +1,12 @@
+From a43e2247bf9c72a62097a3f3e397c3f004142cca Mon Sep 17 00:00:00 2001
+From: Josh Schmelzle <josh@joshschmelzle.com>
+Date: Thu, 20 Oct 2022 18:22:17 -0400
+Subject: [PATCH] [PATCH] Enable TDR for BCM54213PE
+
+---
+ drivers/net/phy/broadcom.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
 diff --git a/drivers/net/phy/broadcom.c b/drivers/net/phy/broadcom.c
 index 3c4035d5489a..9e687fded43f 100644
 --- a/drivers/net/phy/broadcom.c
@@ -11,3 +20,5 @@ index 3c4035d5489a..9e687fded43f 100644
  }, {
         .phy_id         = PHY_ID_BCM5461,
         .phy_id_mask    = 0xfffffff0,
+--
+2.30.2
