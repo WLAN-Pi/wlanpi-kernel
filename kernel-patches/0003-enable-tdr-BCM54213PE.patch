@@ -1,0 +1,13 @@
+diff --git a/drivers/net/phy/broadcom.c b/drivers/net/phy/broadcom.c
+index 3c4035d5489a..9e687fded43f 100644
+--- a/drivers/net/phy/broadcom.c
++++ b/drivers/net/phy/broadcom.c
+@@ -894,6 +894,8 @@ static struct phy_driver broadcom_drivers[] = {
+        .config_intr    = bcm_phy_config_intr,
+        .suspend        = bcm54xx_suspend,
+        .resume         = bcm54xx_resume,
++       .cable_test_start = bcm_phy_cable_test_start_rdb,
++       .cable_test_get_status = bcm_phy_cable_test_get_status_rdb,
+ }, {
+        .phy_id         = PHY_ID_BCM5461,
+        .phy_id_mask    = 0xfffffff0,
