@@ -27,11 +27,11 @@ echo "BUILD_ARMHF = ${BUILD_ARMHF}"
 echo "BUILD_ARM64 = ${BUILD_ARM64}"
 
 if [ "${BUILD_ARMHF}" == "1" ]; then
-  version_armhf="$(strings ${BOOT_PATH}/kernel7l-wp.img | grep "Linux version" | cut -f 3 -d ' ')"
+  version_armhf="$(strings ${BOOT_PATH}/kernel7l-wp.img | grep "Linux version" | cut -f 3 -d ' ' | head -n1)"
   echo "version_armhf = ${version_armhf}"
 fi
 if [ "${BUILD_ARM64}" == "1" ]; then
-  version_arm64="$(strings ${BOOT_PATH}/kernel8-wp.img | grep "Linux version" | cut -f 3 -d ' ')"
+  version_arm64="$(strings ${BOOT_PATH}/kernel8-wp.img | grep "Linux version" | cut -f 3 -d ' ' | head -n1)"
   echo "version_arm64 = ${version_arm64}"
 fi
 
