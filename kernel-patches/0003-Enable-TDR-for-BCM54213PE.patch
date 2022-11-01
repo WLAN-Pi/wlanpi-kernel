@@ -1,0 +1,25 @@
+From 62dc781c84a20816fa4182c22435b0fcb51304fb Mon Sep 17 00:00:00 2001
+From: Josh Schmelzle <josh@joshschmelzle.com>
+Date: Tue, 1 Nov 2022 01:28:30 +0000
+Subject: [PATCH 1/1] Enable TDR for BCM54213PE
+
+---
+ drivers/net/phy/broadcom.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/net/phy/broadcom.c b/drivers/net/phy/broadcom.c
+index d4c86aeb9748..d112bfb08437 100644
+--- a/drivers/net/phy/broadcom.c
++++ b/drivers/net/phy/broadcom.c
+@@ -929,6 +929,8 @@ static struct phy_driver broadcom_drivers[] = {
+ 	.config_intr	= bcm_phy_config_intr,
+ 	.suspend	= bcm54xx_suspend,
+ 	.resume		= bcm54xx_resume,
++	.cable_test_start = bcm_phy_cable_test_start_rdb,
++	.cable_test_get_status = bcm_phy_cable_test_get_status_rdb,
+ }, {
+ 	.phy_id		= PHY_ID_BCM5461,
+ 	.phy_id_mask	= 0xfffffff0,
+-- 
+2.25.1
+
