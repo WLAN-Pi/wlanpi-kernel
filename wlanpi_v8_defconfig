@@ -1,5 +1,8 @@
 CONFIG_LOCALVERSION="-v8-wlanpi"
 
+# USB Type-C Support
+CONFIG_TYPEC=y
+
 CONFIG_MAC80211_DEBUGFS=y
 
 # Intel Wi-Fi drivers
