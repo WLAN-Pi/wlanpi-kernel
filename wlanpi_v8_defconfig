@@ -1,7 +1,14 @@
 CONFIG_LOCALVERSION="-v8-wlanpi"
 
-#Debug option for DMA
-CONFIG_DMA_API_DEBUG=y 
+#
+# Default contiguous memory area size:
+#
+CONFIG_CMA_SIZE_MBYTES=50
+
+# Debug options for DMA
+CONFIG_DMA_API_DEBUG=y
+CONFIG_DMA_API_DEBUG_SG=y
+
 
 CONFIG_MAC80211_DEBUGFS=y
 
