@@ -12,11 +12,11 @@ on:
 
 jobs:
   build:
-    runs-on: 'ubuntu-20.04'
+    runs-on: 'ubuntu-22.04'
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Install dependencies
         run: |
@@ -32,7 +32,7 @@ jobs:
           ./build-kernel.sh --arch=arm64 --deb-arch=arm64 -jX
 
       - name: Upload kernel
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: wlanpi-kernel-${{ steps.build-kernel.outputs.package-version }}
           path: ${{ steps.build-kernel.outputs.deb-package }}
@@ -52,7 +52,7 @@ jobs:
     name: Post Workflow Status to Slack
     needs:
       - build
-    runs-on: 'ubuntu-20.04'
+    runs-on: 'ubuntu-22.04'
     steps:
       - name: Slack Workflow Notification
         uses: Gamesight/slack-workflow-status@master
