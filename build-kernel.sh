@@ -15,7 +15,7 @@ DEB_PATH="${SCRIPT_PATH}/debian/wlanpi-kernel"
 
 # Set default values for configurations
 KERNEL_URL="https://github.com/raspberrypi/linux.git"
-KERNEL_BRANCH="rpi-6.1.y"
+KERNEL_BRANCH="rpi-6.2.y"
 KERNEL_ARCH="arm64"
 KERNEL_DEFCONFIG="bcm2711_defconfig"
 WLANPI_DEFCONFIG="wlanpi_v7l_defconfig"
