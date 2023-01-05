@@ -1,5 +1,7 @@
 CONFIG_LOCALVERSION="-v8-wlanpi"
 
+CONFIG_PWM=y
+
 CONFIG_MAC80211_DEBUGFS=y
 
 # Intel Wi-Fi drivers
