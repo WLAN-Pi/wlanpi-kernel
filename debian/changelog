@@ -1,3 +1,9 @@
+wlanpi-kernel (0.3) bullseye; urgency=medium
+
+  * Add support for Netgear Nighthawk AXE3000 Wi-Fi 6E USB 3.0 adapter
+
+ -- Jiri Brejcha <jirka@jiribrejcha.net>  Thu, 20 Jul 2023 15:01:01 +0100
+
 wlanpi-kernel (0.2) bullseye; urgency=medium
 
   * Remove Jumbo frame support
