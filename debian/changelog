@@ -1,10 +1,3 @@
-wlanpi-kernel (0.4) bullseye; urgency=medium
-
-  * Add support for Comfast CF-953AX USB Wi-Fi adapter
-  * Add support for Netgear Nighthawk AXE3000 USB Wi-Fi adapter
-
- -- Jiri Brejcha <jirka@jiribrejcha.net>  Wed, 23 Aug 2023 10:02:03 +0100
-
 wlanpi-kernel (0.2) bullseye; urgency=medium
 
   * Remove Jumbo frame support
