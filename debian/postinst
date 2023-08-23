@@ -2,12 +2,14 @@
 
 #DEBHELPER#
 
-# Add support for Netgear Nighthawk AXE3000 Wi-Fi 6E USB 3.0 adapter
-modprobe mt7921u
+# Add support for new MediaTek adapters
+echo "mt7921u" > /etc/modules-load.d/mt7921u.conf
 
-if ! grep -q 'ATTR{idVendor}=="0846", ATTR{idProduct}=="9060"' /etc/udev/rules.d/network_drivers.rules; then
-    echo 'ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="0846", ATTR{idProduct}=="9060", RUN+="/sbin/modprobe -qba mt7921u"' >> /etc/udev/rules.d/network_drivers.rules
-fi
-if ! grep -q "0846 9060" /sys/bus/usb/drivers/mt7921u/new_id; then
-    install mt7921u /sbin/modprobe --ignore-install mt7921u $CMDLINE_OPTS; /bin/echo "0846 9060" > /sys/bus/usb/drivers/mt7921u/new_id
-fi
+# Support Comfast CF-953AX USB adapter
+echo 'SUBSYSTEM=="drivers", DEVPATH=="/bus/usb/drivers/mt7921u", ATTR{new_id}="3574 6211"' > /etc/udev/rules.d/99-cf95x.rules
+
+# Support Netgear Nighthawk AXE3000 USB adapter
+echo 'SUBSYSTEM=="drivers", DEVPATH=="/bus/usb/drivers/mt7921u", ATTR{new_id}="0846 9060"' > /etc/udev/rules.d/99-axe3000.rules
+
+# Apply changes immediately without requiring a reboot
+modprobe mt7921u
