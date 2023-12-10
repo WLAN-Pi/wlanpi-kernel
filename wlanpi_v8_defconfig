@@ -6,7 +6,7 @@ CONFIG_QRTR=m
 # CONFIG_QRTR_TUN is not set
 CONFIG_QRTR_MHI=m
 
-CONFIG_BCM2712_IOMMU=n
+# CONFIG_BCM2712_IOMMU is not set
 
 #
 # Device Drivers
