@@ -292,10 +292,27 @@ generate_config()
     log "ok" "Customize defconfig"
     scripts/kconfig/merge_config.sh "${KERNEL_PATH}"/arch/"${ARCH}"/configs/{${KERNEL_DEFCONFIG},${WLANPI_DEFCONFIG}} | tee "${LOG_PATH}"/update-config.log 2>&1
 
-    if grep -q "Actual value:" "${LOG_PATH}"/update-config.log; then
-        log "error" "Error updating defconfig. See above log to check which configs had conflicts."
-        exit 1
-    fi
+    requested_values=$(grep "Requested value:" "${LOG_PATH}"/update-config.log)
+    actual_values=$(grep "Actual value:" "${LOG_PATH}"/update-config.log)
+
+    mapfile -t requested_array <<< "$requested_values"
+    mapfile -t actual_array <<< "$actual_values"
+
+    for (( i=0; i < ${#requested_array[@]}; i++ )); do
+        value_requested="$(sed 's/Requested value:  //g' <<< "${requested_array[$i]}")"
+        value_actual="$(sed 's/Actual value:  //g' <<< "${actual_array[$i]}")"
+
+        is_request_disable="$( [ "${value_requested#*=}" == "n" ] || grep -q "is not set" <<< "$value_requested" && echo disable || echo enable )"
+        is_actual_empty=$(awk '{$1=$1;print}' <<< "$value_actual" | wc -c)
+
+        if [ "$is_request_disable" == "disable" ] && [ $is_actual_empty -le 1 ]; then
+            log "warn" "Following config requested to be disabled, but is not even present in this kernel."
+            echo Config: "$value_requested"
+        else
+            log "error" "Error updating defconfig. One or more configs could not be configured. See above log to check which ones had conflicts."
+            exit 1
+        fi
+    done;
 
     popd >/dev/null
 }
