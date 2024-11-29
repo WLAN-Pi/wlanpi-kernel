@@ -129,7 +129,7 @@ process_arch()
             export CROSS_COMPILE="aarch64-linux-gnu-"
             export KERNEL="kernel8-wp"
             KERNEL_IMAGE="Image"
-            WLANPI_DEFCONFIG="wlanpi_v8_defconfig"
+            WLANPI_DEFCONFIG="wlanpi_go_v8_defconfig"
             ;;
         * )
             log "error" "Arch ${current_arch} not recognized."
