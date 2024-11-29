@@ -22,7 +22,7 @@ WLANPI_DEFCONFIG="wlanpi_v7l_defconfig"
 KERNEL_FORCE_SYNC="0"
 CLEAN_KERNEL="0"
 SKIP_PATCHES="0"
-DEB_ARCH="armhf"
+DEB_ARCH="arm64"
 EXEC_FUNC=""
 NUM_CORES=$(($(nproc)/2))
 export DEBFULLNAME="Daniel Finimundi"
@@ -227,7 +227,9 @@ prepare_build_package()
     (cd debian; ./gen_kernel_preinst_postinst.sh "${KERNEL_ARCH// /,}")
     dch -v "$DEBVER" -D bullseye --force-distribution "Kernel version ${KERNEL_VERSION}"
 
-    echo "::set-output name=package-version::${DEBVER}"
+    # https://github.blog/changelog/2022-10-11-github-actions-deprecating-save-state-and-set-output-commands/
+    # echo "::set-output name=package-version::${DEBVER}"
+    echo "package-version=${DEBVER}" >> $GITHUB_OUTPUT
 }
 
 build_package()

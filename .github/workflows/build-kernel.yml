@@ -39,7 +39,7 @@ jobs:
       - name: Upload kernel
         uses: actions/upload-artifact@v4
         with:
-          name: wlanpi-kernel-${{ steps.build-kernel.outputs.package-version }}
+          name: wlanpi-kernel-${{ matrix.distro }}-${{ steps.build-kernel.outputs.package-version }}
           path: ${{ steps.build-kernel.outputs.deb-package }}
 
       - name: Upload package to debian/${{ matrix.distro }} on packagecloud
@@ -51,9 +51,9 @@ jobs:
           packagecloud-repo: dev
           packagecloud-distrib: debian/${{ matrix.distro }}
           packagecloud-token: ${{ secrets.PACKAGECLOUD_TOKEN }}
-          
+  
   slack-workflow-status:
-    if: always()
+    if: ${{ matrix.arch == 'armhf' && (github.repository_owner == 'WLAN-Pi') }}
     name: Post Workflow Status to Slack
     needs:
       - build
