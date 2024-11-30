@@ -39,11 +39,11 @@ jobs:
       - name: Upload kernel
         uses: actions/upload-artifact@v4
         with:
-          name: wlanpi-kernel-${{ steps.build-kernel.outputs.package-version }}
+          name: wlanpi-kernel-${{ steps.build-kernel.outputs.package-version }}-${{ matrix.distro }}
           path: ${{ steps.build-kernel.outputs.deb-package }}
 
       - name: Upload package to debian/${{ matrix.distro }} on packagecloud
-        if: ${{ github.event.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
+        if: ${{ github.event.ref == format('refs/heads/{0}', github.event.repository.default_branch) && (github.repository_owner == 'WLAN-Pi') && (! github.event.pull_request.head.repo.fork) }}
         uses: danielmundi/upload-packagecloud@main
         with:
           package-name: ${{ steps.build-kernel.outputs.deb-package }}
@@ -51,9 +51,9 @@ jobs:
           packagecloud-repo: dev
           packagecloud-distrib: debian/${{ matrix.distro }}
           packagecloud-token: ${{ secrets.PACKAGECLOUD_TOKEN }}
-          
+  
   slack-workflow-status:
-    if: always()
+    if: ${{ always() && (github.repository_owner == 'WLAN-Pi') && (! github.event.pull_request.head.repo.fork) }}
     name: Post Workflow Status to Slack
     needs:
       - build
