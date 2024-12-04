@@ -1,4 +1,12 @@
 CONFIG_LOCALVERSION="-v8-wlanpi"
+
+# WLAN Pi Go
+#
+CONFIG_USB_SUPPORT=y
+CONFIG_USB=y
+CONFIG_SPI=y
+CONFIG_USB_MAX3421_HCD=m
+
 #
 # Classification
 #
