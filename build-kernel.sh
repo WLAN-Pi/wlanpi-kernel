@@ -87,7 +87,7 @@ echo "Applying patches from $PATCHES_DIR..."
 for patch in "$PATCHES_DIR"/*.patch; do
     if [ -f "$patch" ]; then
         echo "Applying patch: $(basename "$patch")"
-        patch -p1 -N < "$patch"
+        patch -p1 --ignore-whitespace -N < "$patch"
     else
         echo "No patches found in $PATCHES_DIR."
     fi
