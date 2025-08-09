@@ -1,0 +1,32 @@
+diff --git a/drivers/net/wireless/intel/iwlwifi/iwl-nvm-parse.c b/drivers/net/wireless/intel/iwlwifi/iwl-nvm-parse.c
+index 1234567..89abcde 100644
+--- a/drivers/net/wireless/intel/iwlwifi/iwl-nvm-parse.c
++++ b/drivers/net/wireless/intel/iwlwifi/iwl-nvm-parse.c
+@@ -***,7 +***,7 @@ iwl_nvm_fixup_sband_iftd(struct iwl_trans *trans,
+ 			 u8 tx_chains, u8 rx_chains,
+ 			 const struct iwl_fw *fw)
+ {
+-	bool is_ap = iftype_data->types_mask & (BIT(NL80211_IFTYPE_AP) |
++	bool is_ap = iftype_data->types_mask & (BIT(NL80211_IFTYPE_AP) |
+ 						BIT(NL80211_IFTYPE_P2P_GO));
+-	bool no_320;
+-
+-	no_320 = (!trans->trans_cfg->integrated &&
+-		 trans->pcie_link_speed < PCI_EXP_LNKSTA_CLS_8_0GB) ||
+-		 trans->reduced_cap_sku;
++	/* Force-enable 320 MHz support by disabling the no_320 flag. */
++	bool no_320 = false;
+
+ 	if (!data->sku_cap_11be_enable || iwlwifi_mod_params.disable_11be)
+ 		iftype_data->eht_cap.has_eht = false;
+@@ -***,7 +***,7 @@ iwl_nvm_fixup_sband_iftd(struct iwl_trans *trans,
+ 		break;
+ 	case NL80211_BAND_6GHZ:
+-		if (!no_320) {
++		/* Always advertise 320 MHz capability */
++		if (true) {
+ 			iftype_data->eht_cap.eht_cap_elem.phy_cap_info[0] |=
+ 				IEEE80211_EHT_PHY_CAP0_320MHZ_IN_6GHZ;
+ 			iftype_data->eht_cap.eht_cap_elem.phy_cap_info[1] |=
+ 				IEEE80211_EHT_PHY_CAP1_BEAMFORMEE_SS_320MHZ_MASK;
+ 		}
