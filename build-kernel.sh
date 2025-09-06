@@ -16,7 +16,7 @@ BASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Configuration Variables
 KERNEL_REPO="https://github.com/raspberrypi/linux.git"
-KERNEL_BRANCH="rpi-6.12.y"
+KERNEL_BRANCH="rpi-6.17.y"
 KERNEL_SRC_DIR="$BASE_DIR/linux"
 OUTPUT_PATH="$BASE_DIR/output"
 CROSS_COMPILE="aarch64-linux-gnu-"
