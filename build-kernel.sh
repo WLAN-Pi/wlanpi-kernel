@@ -37,7 +37,6 @@ HEADERS_OUTPUT_DIR="$OUTPUT_PATH/linux-headers"
 
 # Debian Package Metadata
 PACKAGE_NAME="wlanpi-kernel-bookworm"
-HEADERS_PACKAGE_NAME="wlanpi-kernel-headers-bookworm"
 
 # Trap for error handling
 trap 'echo "Error encountered at line $LINENO. Exiting."; exit 1' ERR
@@ -121,29 +120,6 @@ cp arch/arm64/boot/Image "$IMAGE_OUTPUT"
 find arch/arm64/boot/dts/ -name '*.dtb' -exec cp {} "$DTB_OUTPUT_DIR" \;
 find arch/arm64/boot/dts/overlays/ -name '*.dtbo' -exec cp {} "$DTBO_OUTPUT_DIR" \;
 
-prepare_kernel_headers() {
-    echo "Preparing kernel headers..."
-    
-    mkdir -p "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION"
-    mkdir -p "$HEADERS_OUTPUT_DIR/lib/modules/$KERNEL_VERSION/build"
-
-    echo "Copying kernel headers..."
-    make ARCH="$ARCH" CROSS_COMPILE="$CROSS_COMPILE" \
-        INSTALL_HDR_PATH="$HEADERS_OUTPUT_DIR/usr" \
-        headers_install
-
-    echo "Copying kernel source for headers..."
-    cp -a "include" "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/"
-    cp -a "arch/$ARCH/include" "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/arch/"
-    
-    cp Makefile "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/"
-    cp .config "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/"
-    cp -a scripts "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/"
-
-    ln -sf "/usr/src/linux-headers-$KERNEL_VERSION" \
-        "$HEADERS_OUTPUT_DIR/lib/modules/$KERNEL_VERSION/build"
-}
-
 # Prepare Debian package
 echo "Preparing Debian package..."
 
@@ -151,6 +127,8 @@ echo "Preparing Debian package..."
 KERNEL_VERSION=$(make kernelrelease)
 BUILD_DATE=$(date +%Y%m%d)
 PACKAGE_VERSION="${KERNEL_VERSION}-${BUILD_DATE}"
+
+HEADERS_PACKAGE_NAME="linux-headers-${KERNEL_VERSION}"
 
 echo "Kernel Version: $KERNEL_VERSION"
 echo "Build Date: $BUILD_DATE"
@@ -242,7 +220,39 @@ EOF
 # Make postinst script executable
 chmod 755 "$PACKAGE_DIR/DEBIAN/postinst"
 
-prepare_kernel_headers
+# Prepare kernel headers
+echo "Preparing kernel headers..."
+
+mkdir -p "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION"
+mkdir -p "$HEADERS_OUTPUT_DIR/lib/modules/$KERNEL_VERSION/build"
+
+echo "Copying kernel headers..."
+make ARCH="$ARCH" CROSS_COMPILE="$CROSS_COMPILE" \
+    INSTALL_HDR_PATH="$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION" \
+    headers_install
+
+echo "Copying kernel source for headers..."
+cp -a "include" "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/"
+cp -a "arch/$ARCH/include" "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/arch/$ARCH/"
+
+cp Makefile "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/"
+cp .config "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/"
+cp Module.symvers "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/"
+cp System.map "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/"
+
+[ -f Module.order ] && cp Module.order "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/"
+
+cp -a scripts "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/"
+cp -a tools "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/"
+
+mkdir -p "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/arch/$ARCH"
+cp -a arch/$ARCH/Makefile "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/arch/$ARCH/"
+
+find arch/$ARCH -name "*.S" -o -name "Kbuild" | \
+    cpio -pdm "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/" 2>/dev/null || true
+
+ln -sf "/usr/src/linux-headers-$KERNEL_VERSION" \
+    "$HEADERS_OUTPUT_DIR/lib/modules/$KERNEL_VERSION/build"
 
 # Create headers package directory
 HEADERS_PACKAGE_DIR="$BASE_DIR/wlanpi-kernel-headers-package"
@@ -271,16 +281,16 @@ Description: Linux kernel headers for WLAN Pi Raspberry Pi kernel
 EOF
 
 # Create DEBIAN/postinst script for headers
-cat <<'EOF' > "$HEADERS_PACKAGE_DIR/DEBIAN/postinst"
+cat <<EOF > "$HEADERS_PACKAGE_DIR/DEBIAN/postinst"
 #!/bin/bash
 set -e
 
-KERNEL_VERSION="$2"
+KERNEL_VERSION="$KERNEL_VERSION"
 
 # Update module build symlink
-if [ -d "/usr/src/linux-headers-$KERNEL_VERSION" ]; then
-    rm -f "/lib/modules/$KERNEL_VERSION/build"
-    ln -sf "/usr/src/linux-headers-$KERNEL_VERSION" "/lib/modules/$KERNEL_VERSION/build"
+if [ -d "/usr/src/linux-headers-\$KERNEL_VERSION" ]; then
+    rm -f "/lib/modules/\$KERNEL_VERSION/build"
+    ln -sf "/usr/src/linux-headers-\$KERNEL_VERSION" "/lib/modules/\$KERNEL_VERSION/build"
 fi
 
 exit 0
