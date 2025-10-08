@@ -191,7 +191,14 @@ cat <<'EOF' > "$PACKAGE_DIR/DEBIAN/postinst"
 set -e
 
 # Variables
-FIRMWARE_DIR="/boot/firmware"
+if [ -d "/boot/firmware" ]; then
+    FIRMWARE_DIR="/boot/firmware"
+elif [ -d "/boot" ]; then
+    FIRMWARE_DIR="/boot"
+else
+    echo "Error: Neither /boot/firmware nor /boot directory found" >&2
+    exit 1
+fi
 PACKAGE_KERNEL_DIR="/usr/local/lib/wlanpi-kernel/boot/firmware"
 CONFIG_TXT="$FIRMWARE_DIR/config.txt"
 KERNEL_IMAGE="wlanpi-kernel8.img"
