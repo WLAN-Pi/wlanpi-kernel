@@ -69,6 +69,9 @@ cd "$KERNEL_SRC_DIR"
 export ARCH="$ARCH"
 export CROSS_COMPILE="$CROSS_COMPILE"
 
+echo "Cleaning previous build artifacts..."
+make mrproper
+
 echo "Loading base config: $BASE_CONFIG..."
 make "$BASE_CONFIG"
 
