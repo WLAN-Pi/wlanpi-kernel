@@ -294,7 +294,7 @@ KERNEL_VERSION="$KERNEL_VERSION"
 
 # Update module build symlink
 if [ -d "/usr/src/linux-headers-\$KERNEL_VERSION" ]; then
-    rm -f "/lib/modules/\$KERNEL_VERSION/build"
+    rm -rf "/lib/modules/\$KERNEL_VERSION/build"
     ln -sf "/usr/src/linux-headers-\$KERNEL_VERSION" "/lib/modules/\$KERNEL_VERSION/build"
 fi
 
@@ -306,11 +306,11 @@ chmod 755 "$HEADERS_PACKAGE_DIR/DEBIAN/postinst"
 
 # Build the Debian package
 echo "Building Debian package..."
-dpkg-deb --build "$PACKAGE_DIR" "$OUTPUT_PATH/${PACKAGE_NAME}_${PACKAGE_VERSION}_arm64.deb"
+fakeroot dpkg-deb --build "$PACKAGE_DIR" "$OUTPUT_PATH/${PACKAGE_NAME}_${PACKAGE_VERSION}_arm64.deb"
 
 # Build the headers Debian package
 echo "Building Kernel Headers Debian package..."
-dpkg-deb --build "$HEADERS_PACKAGE_DIR" \
+fakeroot dpkg-deb --build "$HEADERS_PACKAGE_DIR" \
     "$OUTPUT_PATH/${HEADERS_PACKAGE_NAME}_${HEADERS_PACKAGE_VERSION}_arm64.deb"
 
 echo "Debian packages created successfully in $OUTPUT_PATH:"
