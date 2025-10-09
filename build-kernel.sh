@@ -129,7 +129,8 @@ echo "Preparing Debian package..."
 # Retrieve kernel version and set package version
 KERNEL_VERSION=$(make kernelrelease)
 BUILD_DATE=$(date +%Y%m%d)
-PACKAGE_VERSION="${BUILD_DATE}"
+PACKAGE_VERSION="${KERNEL_VERSION}-${BUILD_DATE}"  
+HEADERS_PACKAGE_VERSION="${BUILD_DATE}" 
 
 HEADERS_PACKAGE_NAME="linux-headers-${KERNEL_VERSION}"
 
@@ -309,11 +310,11 @@ dpkg-deb --build "$PACKAGE_DIR" "$OUTPUT_PATH/${PACKAGE_NAME}_${PACKAGE_VERSION}
 # Build the headers Debian package
 echo "Building Kernel Headers Debian package..."
 dpkg-deb --build "$HEADERS_PACKAGE_DIR" \
-    "$OUTPUT_PATH/${HEADERS_PACKAGE_NAME}_${PACKAGE_VERSION}_arm64.deb"
+    "$OUTPUT_PATH/${HEADERS_PACKAGE_NAME}_${HEADERS_PACKAGE_VERSION}_arm64.deb"
 
 echo "Debian packages created successfully in $OUTPUT_PATH:"
 echo "- ${PACKAGE_NAME}_${PACKAGE_VERSION}_arm64.deb"
-echo "- ${HEADERS_PACKAGE_NAME}_${PACKAGE_VERSION}_arm64.deb"
+echo "- ${HEADERS_PACKAGE_NAME}_${HEADERS_PACKAGE_VERSION}_arm64.deb"
 
 # Clean up temporary package directories
 echo "Cleaning up temporary package directories..."
