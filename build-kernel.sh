@@ -150,6 +150,7 @@ cp "$IMAGE_OUTPUT" "$PACKAGE_DIR/usr/local/lib/wlanpi-kernel/boot/firmware/"
 cp "$DTB_OUTPUT_DIR"*.dtb "$PACKAGE_DIR/usr/local/lib/wlanpi-kernel/boot/firmware/"
 cp "$DTBO_OUTPUT_DIR"*.dtbo "$PACKAGE_DIR/usr/local/lib/wlanpi-kernel/boot/firmware/overlays/"
 cp -r "$MODULES_OUTPUT_DIR/$KERNEL_VERSION" "$PACKAGE_DIR/lib/modules/."
+rm -f "$PACKAGE_DIR/lib/modules/$KERNEL_VERSION/build"
 
 # Create DEBIAN/control file
 cat <<EOF > "$PACKAGE_DIR/DEBIAN/control"
