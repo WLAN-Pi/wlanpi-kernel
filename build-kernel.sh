@@ -129,7 +129,7 @@ echo "Preparing Debian package..."
 # Retrieve kernel version and set package version
 KERNEL_VERSION=$(make kernelrelease)
 BUILD_DATE=$(date +%Y%m%d)
-PACKAGE_VERSION="${KERNEL_VERSION}-${BUILD_DATE}"
+PACKAGE_VERSION="${BUILD_DATE}"
 
 HEADERS_PACKAGE_NAME="linux-headers-${KERNEL_VERSION}"
 
