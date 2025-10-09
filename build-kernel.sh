@@ -243,6 +243,14 @@ cp -a "arch/$ARCH/include" "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VE
 
 cp Makefile "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/"
 cp .config "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/"
+
+if [ ! -f "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/.config" ]; then
+    echo "ERROR: .config file was not copied!"
+    exit 1
+else
+    echo "Verified: .config copied successfully"
+fi
+
 cp Module.symvers "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/"
 cp System.map "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/"
 
@@ -296,6 +304,12 @@ KERNEL_VERSION="$KERNEL_VERSION"
 if [ -d "/usr/src/linux-headers-\$KERNEL_VERSION" ]; then
     rm -rf "/lib/modules/\$KERNEL_VERSION/build"
     ln -sf "/usr/src/linux-headers-\$KERNEL_VERSION" "/lib/modules/\$KERNEL_VERSION/build"
+fi
+
+# Rebuild scripts for target system
+if [ -d "/usr/src/linux-headers-\$KERNEL_VERSION/scripts" ]; then
+    echo "Rebuilding kernel build scripts for target system..."
+    make -C "/usr/src/linux-headers-\$KERNEL_VERSION" scripts 2>/dev/null || true
 fi
 
 exit 0
