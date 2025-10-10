@@ -257,6 +257,11 @@ cp System.map "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/"
 [ -f Module.order ] && cp Module.order "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/"
 
 cp -a scripts "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/"
+
+echo "Removing precompiled script binaries..."
+find "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/scripts" -type f -executable -exec file {} \; | \
+    grep -i ELF | cut -d: -f1 | xargs rm -f
+
 cp -a tools "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/"
 
 cp -a arch/$ARCH/Makefile "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/arch/$ARCH/"
@@ -275,7 +280,7 @@ mkdir -p "$HEADERS_PACKAGE_DIR/DEBIAN" \
          "$HEADERS_PACKAGE_DIR/lib/modules/$KERNEL_VERSION"
 
 # Copy headers to package directory
-cp -r "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION"/* \
+cp -r "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/." \
     "$HEADERS_PACKAGE_DIR/usr/src/linux-headers-$KERNEL_VERSION/"
 cp -r "$HEADERS_OUTPUT_DIR/lib/modules/$KERNEL_VERSION/build" \
     "$HEADERS_PACKAGE_DIR/lib/modules/$KERNEL_VERSION/"
