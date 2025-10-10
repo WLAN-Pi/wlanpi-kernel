@@ -251,6 +251,15 @@ else
     echo "Verified: .config copied successfully"
 fi
 
+echo "Generating configuration files for module builds..."
+make ARCH="$ARCH" CROSS_COMPILE="$CROSS_COMPILE" modules_prepare
+
+echo "Copying generated configuration files..."
+cp -a include/generated "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/include/"
+cp -a include/config "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/include/"
+mkdir -p "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/arch/$ARCH/include/generated"
+cp -a arch/$ARCH/include/generated/* "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/arch/$ARCH/include/generated/" 2>/dev/null || true
+
 cp Module.symvers "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/"
 cp System.map "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/"
 
