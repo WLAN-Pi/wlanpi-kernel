@@ -284,8 +284,15 @@ sudo chroot "$CHROOT_DIR" apt-get install -y build-essential bc bison flex libss
 
 sudo mount --bind "$KERNEL_SRC_DIR" "$CHROOT_DIR/mnt"
 
-# Rebuild scripts inside Debian environment
-sudo chroot "$CHROOT_DIR" /bin/bash -c "cd /mnt && make ARCH=arm64 scripts"
+# Clean scripts directory to force rebuild
+sudo chroot "$CHROOT_DIR" /bin/bash -c "cd /mnt && make scripts/clean" || true
+
+echo "Building scripts in Debian chroot..."
+sudo chroot "$CHROOT_DIR" /bin/bash -c "cd /mnt && make scripts" || {
+    echo "ERROR: Failed to build scripts in chroot"
+    sudo umount "$CHROOT_DIR/mnt" || true
+    exit 1
+}
 
 sudo umount "$CHROOT_DIR/mnt"
 
