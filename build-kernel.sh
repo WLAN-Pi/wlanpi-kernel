@@ -243,13 +243,7 @@ cp -a "arch/$ARCH/include" "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VE
 
 cp Makefile "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/"
 cp .config "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/"
-
-if [ ! -f "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/.config" ]; then
-    echo "ERROR: .config file was not copied!"
-    exit 1
-else
-    echo "Verified: .config copied successfully"
-fi
+cp Kconfig "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/"
 
 echo "Generating configuration files for module builds..."
 make ARCH="$ARCH" CROSS_COMPILE="$CROSS_COMPILE" modules_prepare
