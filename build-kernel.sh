@@ -285,6 +285,11 @@ cp -a tools "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/"
 
 cp -a arch/$ARCH/Makefile "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/arch/$ARCH/"
 
+if [ -d "arch/$ARCH/tools" ]; then
+    echo "Copying arch-specific tools..."
+    cp -a arch/$ARCH/tools "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/arch/$ARCH/"
+fi
+
 find arch/$ARCH -name "*.S" -o -name "Kbuild" | \
     cpio -pdm "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/" 2>/dev/null || true
 
