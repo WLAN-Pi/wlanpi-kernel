@@ -343,11 +343,14 @@ if [ -d "/usr/src/linux-headers-\$KERNEL_VERSION" ]; then
     ln -sf "/usr/src/linux-headers-\$KERNEL_VERSION" "/lib/modules/\$KERNEL_VERSION/build"
 fi
 
-# Rebuild scripts for target system
+# Rebuild build tools with correct GLIBC and generate required headers
 if [ -d "/usr/src/linux-headers-\$KERNEL_VERSION/scripts" ]; then
     echo "Rebuilding kernel build scripts for target system..."
-    make -C "/usr/src/linux-headers-\$KERNEL_VERSION" scripts 2>/dev/null || true
-    make -C "/usr/src/linux-headers-\$KERNEL_VERSION" modules_prepare 2>/dev/null || true
+    NCPUS=\$(nproc)
+    JOBS=\$((NCPUS > 1 ? NCPUS - 1 : 1))
+    make -j\$JOBS -C "/usr/src/linux-headers-\$KERNEL_VERSION" scripts 2>/dev/null || true
+    echo "Generating module build configuration..."
+    make -j\$JOBS -C "/usr/src/linux-headers-\$KERNEL_VERSION" modules_prepare 2>/dev/null || true
 fi
 
 exit 0
