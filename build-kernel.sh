@@ -245,6 +245,9 @@ cp Makefile "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/"
 cp .config "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/"
 cp Kconfig "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/"
 
+echo "Copying Kconfig files..."
+find . -name "Kconfig*" -type f -exec cp --parents {} "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/" \;
+
 echo "Generating configuration files for module builds..."
 make ARCH="$ARCH" CROSS_COMPILE="$CROSS_COMPILE" modules_prepare
 
