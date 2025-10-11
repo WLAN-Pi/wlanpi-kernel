@@ -251,38 +251,17 @@ find . -name "Kconfig*" -type f | tar cf - -T - | tar xf - -C "$HEADERS_OUTPUT_D
 echo "Generating configuration files for module builds..."
 make ARCH="$ARCH" CROSS_COMPILE="$CROSS_COMPILE" modules_prepare
 
-if [ ! -f "include/generated/autoconf.h" ]; then
-    echo "ERROR: modules_prepare did not generate autoconf.h in source!"
-    ls -la include/generated/
-    exit 1
-fi
-
 echo "Copying generated configuration files..."
 cp -a include/generated "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/include/"
 cp -a include/config "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/include/"
-
-if [ ! -f "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/include/generated/autoconf.h" ]; then
-    echo "ERROR: autoconf.h not in staging!"
-    ls -la "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/include/generated/"
-    exit 1
-fi
-
 mkdir -p "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/arch/$ARCH/include/generated"
 cp -a arch/$ARCH/include/generated/* "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/arch/$ARCH/include/generated/" 2>/dev/null || true
 
 cp Module.symvers "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/"
 cp System.map "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/"
-
 [ -f Module.order ] && cp Module.order "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/"
 
-cp -a scripts "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/"
-
-echo "Removing precompiled script binaries..."
-find "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/scripts" -type f -executable -exec file {} \; | \
-    grep -i ELF | cut -d: -f1 | xargs rm -f
-
 cp -a tools "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/"
-
 cp -a arch/$ARCH/Makefile "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/arch/$ARCH/"
 
 if [ -d "arch/$ARCH/tools" ]; then
@@ -292,6 +271,25 @@ fi
 
 find arch/$ARCH -name "*.S" -o -name "Kbuild" | \
     cpio -pdm "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/" 2>/dev/null || true
+
+echo "Rebuilding scripts with Debian GLIBC compatibility..."
+
+sudo apt-get update && sudo apt-get install -y debootstrap
+
+CHROOT_DIR="$BASE_DIR/debian-chroot"
+sudo debootstrap --arch=arm64 bookworm "$CHROOT_DIR" http://deb.debian.org/debian
+
+sudo chroot "$CHROOT_DIR" apt-get update
+sudo chroot "$CHROOT_DIR" apt-get install -y build-essential bc bison flex libssl-dev libelf-dev
+
+sudo mount --bind "$KERNEL_SRC_DIR" "$CHROOT_DIR/mnt"
+
+# Rebuild scripts inside Debian environment
+sudo chroot "$CHROOT_DIR" /bin/bash -c "cd /mnt && make ARCH=arm64 scripts"
+
+sudo umount "$CHROOT_DIR/mnt"
+
+cp -a scripts "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/"
 
 ln -sf "/usr/src/linux-headers-$KERNEL_VERSION" \
     "$HEADERS_OUTPUT_DIR/lib/modules/$KERNEL_VERSION/build"
@@ -329,35 +327,6 @@ Depends: $PACKAGE_NAME (= $PACKAGE_VERSION), gcc, make, perl
 Description: Linux kernel headers for WLAN Pi Raspberry Pi kernel
  Kernel header files and scripts for WLAN Pi custom kernel development.
 EOF
-
-# Create DEBIAN/postinst script for headers
-cat <<EOF > "$HEADERS_PACKAGE_DIR/DEBIAN/postinst"
-#!/bin/bash
-set -e
-
-KERNEL_VERSION="$KERNEL_VERSION"
-
-# Update module build symlink
-if [ -d "/usr/src/linux-headers-\$KERNEL_VERSION" ]; then
-    rm -rf "/lib/modules/\$KERNEL_VERSION/build"
-    ln -sf "/usr/src/linux-headers-\$KERNEL_VERSION" "/lib/modules/\$KERNEL_VERSION/build"
-fi
-
-# Rebuild build tools with correct GLIBC and generate required headers
-if [ -d "/usr/src/linux-headers-\$KERNEL_VERSION/scripts" ]; then
-    echo "Rebuilding kernel build scripts for target system..."
-    NCPUS=\$(nproc)
-    JOBS=\$((NCPUS > 1 ? NCPUS - 1 : 1))
-    make -j\$JOBS -C "/usr/src/linux-headers-\$KERNEL_VERSION" scripts 2>/dev/null || true
-    echo "Generating module build configuration..."
-    make -j\$JOBS -C "/usr/src/linux-headers-\$KERNEL_VERSION" modules_prepare 2>/dev/null || true
-fi
-
-exit 0
-EOF
-
-# Make postinst script executable
-chmod 755 "$HEADERS_PACKAGE_DIR/DEBIAN/postinst"
 
 # Build the Debian package
 echo "Building Debian package..."
