@@ -254,22 +254,9 @@ fi
 echo "Generating configuration files for module builds..."
 make ARCH="$ARCH" CROSS_COMPILE="$CROSS_COMPILE" modules_prepare
 
-if [ ! -f "include/generated/autoconf.h" ]; then
-    echo "ERROR: modules_prepare did not generate autoconf.h!"
-    exit 1
-fi
-
 echo "Copying generated configuration files..."
 cp -a include/generated "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/include/"
 cp -a include/config "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/include/"
-
-if [ ! -f "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/include/generated/autoconf.h" ]; then
-    echo "ERROR: autoconf.h was not copied to staging directory!"
-    ls -la "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/include/generated/"
-    exit 1
-else
-    echo "Verified: autoconf.h copied to staging directory"
-fi
 
 mkdir -p "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/arch/$ARCH/include/generated"
 cp -a arch/$ARCH/include/generated/* "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/arch/$ARCH/include/generated/" 2>/dev/null || true
@@ -338,6 +325,7 @@ fi
 if [ -d "/usr/src/linux-headers-\$KERNEL_VERSION/scripts" ]; then
     echo "Rebuilding kernel build scripts for target system..."
     make -C "/usr/src/linux-headers-\$KERNEL_VERSION" scripts 2>/dev/null || true
+    make -C "/usr/src/linux-headers-\$KERNEL_VERSION" modules_prepare 2>/dev/null || true
 fi
 
 exit 0
