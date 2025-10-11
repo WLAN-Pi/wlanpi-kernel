@@ -246,14 +246,26 @@ cp .config "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/"
 cp Kconfig "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/"
 
 echo "Copying Kconfig files..."
-find . -name "Kconfig*" -type f -exec cp --parents {} "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/" \;
+find . -name "Kconfig*" -type f | tar cf - -T - | tar xf - -C "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/"
 
 echo "Generating configuration files for module builds..."
 make ARCH="$ARCH" CROSS_COMPILE="$CROSS_COMPILE" modules_prepare
 
+if [ ! -f "include/generated/autoconf.h" ]; then
+    echo "ERROR: modules_prepare did not generate autoconf.h in source!"
+    ls -la include/generated/
+    exit 1
+fi
+
 echo "Copying generated configuration files..."
 cp -a include/generated "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/include/"
 cp -a include/config "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/include/"
+
+if [ ! -f "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/include/generated/autoconf.h" ]; then
+    echo "ERROR: autoconf.h not in staging!"
+    ls -la "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/include/generated/"
+    exit 1
+fi
 
 mkdir -p "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/arch/$ARCH/include/generated"
 cp -a arch/$ARCH/include/generated/* "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/arch/$ARCH/include/generated/" 2>/dev/null || true
@@ -291,6 +303,14 @@ cp -r "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/." \
     "$HEADERS_PACKAGE_DIR/usr/src/linux-headers-$KERNEL_VERSION/"
 cp -r "$HEADERS_OUTPUT_DIR/lib/modules/$KERNEL_VERSION/build" \
     "$HEADERS_PACKAGE_DIR/lib/modules/$KERNEL_VERSION/"
+
+if [ ! -f "$HEADERS_PACKAGE_DIR/usr/src/linux-headers-$KERNEL_VERSION/include/generated/autoconf.h" ]; then
+    echo "ERROR: autoconf.h not in final package directory!"
+    ls -la "$HEADERS_PACKAGE_DIR/usr/src/linux-headers-$KERNEL_VERSION/include/generated/" || echo "generated/ doesn't exist"
+    exit 1
+else
+    echo "SUCCESS: autoconf.h is in final package directory"
+fi
 
 # Create DEBIAN/control file for headers package
 cat <<EOF > "$HEADERS_PACKAGE_DIR/DEBIAN/control"
