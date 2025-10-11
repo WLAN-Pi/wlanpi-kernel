@@ -282,10 +282,15 @@ sudo debootstrap --arch=arm64 bookworm "$CHROOT_DIR" http://deb.debian.org/debia
 sudo chroot "$CHROOT_DIR" apt-get update
 sudo chroot "$CHROOT_DIR" apt-get install -y build-essential bc bison flex libssl-dev libelf-dev
 
-sudo mount --bind "$KERNEL_SRC_DIR" "$CHROOT_DIR/mnt"
+echo "Removing Ubuntu-built script binaries..."
+find "$KERNEL_SRC_DIR/scripts" -type f -executable | while read f; do
+    if file "$f" | grep -q "ELF"; then
+        rm -f "$f"
+        echo "Removed: $f"
+    fi
+done
 
-# Clean scripts directory to force rebuild
-sudo chroot "$CHROOT_DIR" /bin/bash -c "cd /mnt && make scripts/clean" || true
+sudo mount --bind "$KERNEL_SRC_DIR" "$CHROOT_DIR/mnt"
 
 echo "Building scripts in Debian chroot..."
 sudo chroot "$CHROOT_DIR" /bin/bash -c "cd /mnt && make scripts" || {
@@ -293,6 +298,11 @@ sudo chroot "$CHROOT_DIR" /bin/bash -c "cd /mnt && make scripts" || {
     sudo umount "$CHROOT_DIR/mnt" || true
     exit 1
 }
+
+if ! chroot "$CHROOT_DIR" ldd /mnt/scripts/mod/modpost | grep -q "libc.so.6"; then
+    echo "ERROR: modpost not properly linked"
+    exit 1
+fi
 
 sudo umount "$CHROOT_DIR/mnt"
 

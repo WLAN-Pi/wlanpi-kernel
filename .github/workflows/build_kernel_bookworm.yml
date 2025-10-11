@@ -28,7 +28,7 @@ jobs:
         uses: actions/cache@v3
         with:
           path: cache-apt
-          key: ${{ runner.os }}-apt-${{ hashFiles('**/build-kernel.sh') }}
+          key: ${{ runner.os }}-apt-${{ hashFiles('build-kernel.sh') }}
           restore-keys: |
             ${{ runner.os }}-apt-
 
@@ -51,7 +51,7 @@ jobs:
         uses: actions/cache@v3
         with:
           path: linux
-          key: ${{ runner.os }}-kernel-${{ hashFiles('**/build-kernel.sh') }}
+          key: ${{ runner.os }}-kernel-${{ hashFiles('build-kernel.sh') }}
           restore-keys: |
             ${{ runner.os }}-kernel-
 
