@@ -254,6 +254,11 @@ fi
 echo "Generating configuration files for module builds..."
 make ARCH="$ARCH" CROSS_COMPILE="$CROSS_COMPILE" modules_prepare
 
+if [ ! -f "include/generated/autoconf.h" ]; then
+    echo "ERROR: modules_prepare did not generate autoconf.h!"
+    exit 1
+fi
+
 echo "Copying generated configuration files..."
 cp -a include/generated "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/include/"
 cp -a include/config "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/include/"
