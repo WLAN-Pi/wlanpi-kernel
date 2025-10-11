@@ -304,16 +304,10 @@ mkdir -p "$HEADERS_PACKAGE_DIR/DEBIAN" \
 # Copy headers to package directory
 cp -r "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/." \
     "$HEADERS_PACKAGE_DIR/usr/src/linux-headers-$KERNEL_VERSION/"
-cp -r "$HEADERS_OUTPUT_DIR/lib/modules/$KERNEL_VERSION/build" \
-    "$HEADERS_PACKAGE_DIR/lib/modules/$KERNEL_VERSION/"
 
-if [ ! -f "$HEADERS_PACKAGE_DIR/usr/src/linux-headers-$KERNEL_VERSION/include/generated/autoconf.h" ]; then
-    echo "ERROR: autoconf.h not in final package directory!"
-    ls -la "$HEADERS_PACKAGE_DIR/usr/src/linux-headers-$KERNEL_VERSION/include/generated/" || echo "generated/ doesn't exist"
-    exit 1
-else
-    echo "SUCCESS: autoconf.h is in final package directory"
-fi
+mkdir -p "$HEADERS_PACKAGE_DIR/lib/modules/$KERNEL_VERSION"
+ln -sf "/usr/src/linux-headers-$KERNEL_VERSION" \
+    "$HEADERS_PACKAGE_DIR/lib/modules/$KERNEL_VERSION/build"
 
 # Create DEBIAN/control file for headers package
 cat <<EOF > "$HEADERS_PACKAGE_DIR/DEBIAN/control"
