@@ -292,8 +292,8 @@ done
 
 sudo mount --bind "$KERNEL_SRC_DIR" "$CHROOT_DIR/mnt"
 
-echo "Building scripts in Debian chroot..."
-sudo chroot "$CHROOT_DIR" /bin/bash -c "cd /mnt && make scripts" || {
+echo "Building scripts and module tools in Debian chroot..."
+sudo chroot "$CHROOT_DIR" /bin/bash -c "cd /mnt && make modules_prepare" || {
     echo "ERROR: Failed to build scripts in chroot"
     sudo umount "$CHROOT_DIR/mnt" || true
     exit 1
