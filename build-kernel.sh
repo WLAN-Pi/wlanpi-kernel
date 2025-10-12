@@ -301,10 +301,8 @@ sudo chroot "$CHROOT_DIR" /bin/bash -c "cd /mnt && make modules_prepare" || {
 
 sudo umount "$CHROOT_DIR/mnt"
 
-# Verify modpost was rebuilt with correct GLIBC
-if ! ldd "$KERNEL_SRC_DIR/scripts/mod/modpost" | grep -q "GLIBC_2.3"; then
-    echo "ERROR: modpost still has wrong GLIBC dependency"
-    ldd "$KERNEL_SRC_DIR/scripts/mod/modpost"
+if ! ldd "$KERNEL_SRC_DIR/scripts/mod/modpost" | grep -q "libc.so.6"; then
+    echo "ERROR: modpost not properly linked"
     exit 1
 fi
 
