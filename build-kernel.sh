@@ -234,8 +234,7 @@ mkdir -p "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/arch/$ARCH"
 
 echo "Copying kernel headers..."
 make ARCH="$ARCH" CROSS_COMPILE="$CROSS_COMPILE" \
-    INSTALL_HDR_PATH="$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION" \
-    headers_install
+    INSTALL_HDR_PATH="$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION"
 
 echo "Copying kernel source for headers..."
 cp -a "include" "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/"
