@@ -299,12 +299,14 @@ sudo chroot "$CHROOT_DIR" /bin/bash -c "cd /mnt && make scripts" || {
     exit 1
 }
 
-if ! chroot "$CHROOT_DIR" ldd /mnt/scripts/mod/modpost | grep -q "libc.so.6"; then
-    echo "ERROR: modpost not properly linked"
+sudo umount "$CHROOT_DIR/mnt"
+
+# Verify modpost was rebuilt with correct GLIBC
+if ! ldd "$KERNEL_SRC_DIR/scripts/mod/modpost" | grep -q "GLIBC_2.3"; then
+    echo "ERROR: modpost still has wrong GLIBC dependency"
+    ldd "$KERNEL_SRC_DIR/scripts/mod/modpost"
     exit 1
 fi
-
-sudo umount "$CHROOT_DIR/mnt"
 
 cp -a scripts "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/"
 
