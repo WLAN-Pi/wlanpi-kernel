@@ -11,8 +11,37 @@ set -euo pipefail  # Enable strict error handling
 LOG_FILE="build_kernel.log"
 exec > >(tee -i "$LOG_FILE") 2>&1
 
+# Track build timing
+BUILD_START_TIME=$(date +%s)
+BUILD_START_TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S %Z')
+echo "========================================"
+echo "Kernel Build Started"
+echo "========================================"
+echo "Started at: ${BUILD_START_TIMESTAMP}"
+echo "========================================"
+echo ""
+
 # Determine the directory where the script resides
 BASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Check required tools
+echo "Checking for required tools..."
+MISSING_TOOLS=()
+for tool in git make gcc aarch64-linux-gnu-gcc patch dpkg-deb; do
+    if ! command -v "$tool" &> /dev/null; then
+        MISSING_TOOLS+=("$tool")
+    fi
+done
+
+if [ ${#MISSING_TOOLS[@]} -gt 0 ]; then
+    echo "ERROR: The following required tools are missing:"
+    printf '  - %s\n' "${MISSING_TOOLS[@]}"
+    echo ""
+    echo "Please install the missing tools and try again."
+    exit 1
+fi
+echo "All required tools found."
+echo ""
 
 # Configuration Variables
 KERNEL_REPO="https://github.com/raspberrypi/linux.git"
@@ -39,8 +68,32 @@ HEADERS_OUTPUT_DIR="$OUTPUT_PATH/linux-headers"
 PACKAGE_NAME="wlanpi-kernel-bookworm"
 HEADERS_PACKAGE_NAME="wlanpi-kernel-headers-bookworm"
 
-# Trap for error handling
-trap 'echo "Error encountered at line $LINENO. Exiting."; exit 1' ERR
+# Trap for error handling and timing
+term() {
+	EXIT_CODE=$?
+	if [ "$EXIT_CODE" -ne 0 ]; then
+		BUILD_FAIL_TIME=$(date +%s)
+		BUILD_FAIL_TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S %Z')
+		if [ -n "${BUILD_START_TIME}" ]; then
+			BUILD_FAIL_DURATION=$((BUILD_FAIL_TIME - BUILD_START_TIME))
+			BUILD_FAIL_FORMATTED=$(printf '%02d:%02d:%02d' $((BUILD_FAIL_DURATION/3600)) $((BUILD_FAIL_DURATION%3600/60)) $((BUILD_FAIL_DURATION%60)))
+			echo ""
+			echo "========================================"
+			echo "Build FAILED (exit code: $EXIT_CODE)"
+			echo "========================================"
+			echo "Started:  ${BUILD_START_TIMESTAMP}"
+			echo "Failed:   ${BUILD_FAIL_TIMESTAMP}"
+			echo "Duration: ${BUILD_FAIL_FORMATTED}"
+			echo "========================================"
+			echo ""
+		else
+			echo "Build failed (exit code: $EXIT_CODE)"
+		fi
+	fi
+}
+
+trap 'term; echo "Error encountered at line $LINENO. Exiting."; exit 1' ERR
+trap 'term' EXIT INT TERM
 
 # Initialize output directories
 echo "Creating output directories..."
@@ -83,15 +136,19 @@ else
 fi
 
 # Apply patches
-echo "Applying patches from $PATCHES_DIR..."
-for patch in "$PATCHES_DIR"/*.patch; do
-    if [ -f "$patch" ]; then
+echo "Checking for patches in $PATCHES_DIR..."
+shopt -s nullglob  # Make globs expand to nothing if no matches
+patches=("$PATCHES_DIR"/*.patch)
+if [ ${#patches[@]} -gt 0 ]; then
+    echo "Applying ${#patches[@]} patch(es)..."
+    for patch in "${patches[@]}"; do
         echo "Applying patch: $(basename "$patch")"
         patch -p1 --ignore-whitespace -N < "$patch"
-    else
-        echo "No patches found in $PATCHES_DIR."
-    fi
-done
+    done
+else
+    echo "No patches found in $PATCHES_DIR, skipping patch application."
+fi
+shopt -u nullglob  # Restore default glob behavior
 
 # Build the kernel, modules, and DTBs
 echo "Starting kernel build..."
@@ -164,9 +221,24 @@ mkdir -p "$PACKAGE_DIR/DEBIAN" \
          "$PACKAGE_DIR/lib/modules/$KERNEL_VERSION"
 
 # Copy files to package directory
+echo "Copying kernel image..."
 cp "$IMAGE_OUTPUT" "$PACKAGE_DIR/usr/local/lib/wlanpi-kernel/boot/firmware/"
-cp "$DTB_OUTPUT_DIR"*.dtb "$PACKAGE_DIR/usr/local/lib/wlanpi-kernel/boot/firmware/"
-cp "$DTBO_OUTPUT_DIR"*.dtbo "$PACKAGE_DIR/usr/local/lib/wlanpi-kernel/boot/firmware/overlays/"
+
+echo "Copying DTB files..."
+if compgen -G "$DTB_OUTPUT_DIR"*.dtb > /dev/null; then
+    cp "$DTB_OUTPUT_DIR"*.dtb "$PACKAGE_DIR/usr/local/lib/wlanpi-kernel/boot/firmware/"
+else
+    echo "Warning: No DTB files found in $DTB_OUTPUT_DIR"
+fi
+
+echo "Copying DTBO overlay files..."
+if compgen -G "$DTBO_OUTPUT_DIR"*.dtbo > /dev/null; then
+    cp "$DTBO_OUTPUT_DIR"*.dtbo "$PACKAGE_DIR/usr/local/lib/wlanpi-kernel/boot/firmware/overlays/"
+else
+    echo "Warning: No DTBO files found in $DTBO_OUTPUT_DIR"
+fi
+
+echo "Copying kernel modules..."
 cp -r "$MODULES_OUTPUT_DIR/$KERNEL_VERSION" "$PACKAGE_DIR/lib/modules/."
 
 # Create DEBIAN/control file
@@ -264,16 +336,20 @@ Description: Linux kernel headers for WLAN Pi Raspberry Pi kernel
 EOF
 
 # Create DEBIAN/postinst script for headers
-cat <<'EOF' > "$HEADERS_PACKAGE_DIR/DEBIAN/postinst"
+cat <<EOF > "$HEADERS_PACKAGE_DIR/DEBIAN/postinst"
 #!/bin/bash
 set -e
 
-KERNEL_VERSION="$2"
+# Extract kernel version from package (matches the installed modules directory)
+KERNEL_VERSION="$KERNEL_VERSION"
 
 # Update module build symlink
-if [ -d "/usr/src/linux-headers-$KERNEL_VERSION" ]; then
-    rm -f "/lib/modules/$KERNEL_VERSION/build"
-    ln -sf "/usr/src/linux-headers-$KERNEL_VERSION" "/lib/modules/$KERNEL_VERSION/build"
+if [ -d "/usr/src/linux-headers-\$KERNEL_VERSION" ]; then
+    rm -f "/lib/modules/\$KERNEL_VERSION/build"
+    ln -sf "/usr/src/linux-headers-\$KERNEL_VERSION" "/lib/modules/\$KERNEL_VERSION/build"
+    echo "Kernel headers symlink created for \$KERNEL_VERSION"
+else
+    echo "Warning: Kernel headers directory not found for \$KERNEL_VERSION"
 fi
 
 exit 0
@@ -300,4 +376,19 @@ echo "Cleaning up temporary package directories..."
 rm -rf "$PACKAGE_DIR"
 rm -rf "$HEADERS_PACKAGE_DIR"
 
+# Calculate and display build timing
+BUILD_END_TIME=$(date +%s)
+BUILD_END_TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S %Z')
+BUILD_DURATION=$((BUILD_END_TIME - BUILD_START_TIME))
+BUILD_DURATION_FORMATTED=$(printf '%02d:%02d:%02d' $((BUILD_DURATION/3600)) $((BUILD_DURATION%3600/60)) $((BUILD_DURATION%60)))
+
+echo ""
+echo "========================================"
+echo "Build Summary"
+echo "========================================"
+echo "Started:  ${BUILD_START_TIMESTAMP}"
+echo "Finished: ${BUILD_END_TIMESTAMP}"
+echo "Duration: ${BUILD_DURATION_FORMATTED}"
+echo "========================================"
+echo ""
 echo "Kernel build, module installation, and package creation completed successfully."

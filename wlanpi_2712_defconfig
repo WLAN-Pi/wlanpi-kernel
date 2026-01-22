@@ -1,4 +1,8 @@
-CONFIG_LOCALVERSION="-v8-wlanpi"
+CONFIG_LOCALVERSION="-2712-wlanpi"
+
+# Pi 5 specific: 16KB page size and 47-bit virtual addressing
+CONFIG_ARM64_16K_PAGES=y
+CONFIG_ARM64_VA_BITS_47=y
 
 # Virtio drivers for QEMU virt machine (development/testing)
 #
