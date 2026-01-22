@@ -11,8 +11,37 @@ set -euo pipefail  # Enable strict error handling
 LOG_FILE="build_kernel.log"
 exec > >(tee -i "$LOG_FILE") 2>&1
 
+# Track build timing
+BUILD_START_TIME=$(date +%s)
+BUILD_START_TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S %Z')
+echo "========================================"
+echo "Kernel Build Started"
+echo "========================================"
+echo "Started at: ${BUILD_START_TIMESTAMP}"
+echo "========================================"
+echo ""
+
 # Determine the directory where the script resides
 BASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Check required tools
+echo "Checking for required tools..."
+MISSING_TOOLS=()
+for tool in git make gcc aarch64-linux-gnu-gcc patch dpkg-deb; do
+    if ! command -v "$tool" &> /dev/null; then
+        MISSING_TOOLS+=("$tool")
+    fi
+done
+
+if [ ${#MISSING_TOOLS[@]} -gt 0 ]; then
+    echo "ERROR: The following required tools are missing:"
+    printf '  - %s\n' "${MISSING_TOOLS[@]}"
+    echo ""
+    echo "Please install the missing tools and try again."
+    exit 1
+fi
+echo "All required tools found."
+echo ""
 
 # Configuration Variables
 KERNEL_REPO="https://github.com/raspberrypi/linux.git"
@@ -37,9 +66,34 @@ HEADERS_OUTPUT_DIR="$OUTPUT_PATH/linux-headers"
 
 # Debian Package Metadata
 PACKAGE_NAME="wlanpi-kernel-bookworm"
+HEADERS_PACKAGE_NAME="wlanpi-kernel-headers-bookworm"
 
-# Trap for error handling
-trap 'echo "Error encountered at line $LINENO. Exiting."; exit 1' ERR
+# Trap for error handling and timing
+term() {
+	EXIT_CODE=$?
+	if [ "$EXIT_CODE" -ne 0 ]; then
+		BUILD_FAIL_TIME=$(date +%s)
+		BUILD_FAIL_TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S %Z')
+		if [ -n "${BUILD_START_TIME}" ]; then
+			BUILD_FAIL_DURATION=$((BUILD_FAIL_TIME - BUILD_START_TIME))
+			BUILD_FAIL_FORMATTED=$(printf '%02d:%02d:%02d' $((BUILD_FAIL_DURATION/3600)) $((BUILD_FAIL_DURATION%3600/60)) $((BUILD_FAIL_DURATION%60)))
+			echo ""
+			echo "========================================"
+			echo "Build FAILED (exit code: $EXIT_CODE)"
+			echo "========================================"
+			echo "Started:  ${BUILD_START_TIMESTAMP}"
+			echo "Failed:   ${BUILD_FAIL_TIMESTAMP}"
+			echo "Duration: ${BUILD_FAIL_FORMATTED}"
+			echo "========================================"
+			echo ""
+		else
+			echo "Build failed (exit code: $EXIT_CODE)"
+		fi
+	fi
+}
+
+trap 'term; echo "Error encountered at line $LINENO. Exiting."; exit 1' ERR
+trap 'term' EXIT INT TERM
 
 # Initialize output directories
 echo "Creating output directories..."
@@ -69,9 +123,6 @@ cd "$KERNEL_SRC_DIR"
 export ARCH="$ARCH"
 export CROSS_COMPILE="$CROSS_COMPILE"
 
-echo "Cleaning previous build artifacts..."
-make mrproper
-
 echo "Loading base config: $BASE_CONFIG..."
 make "$BASE_CONFIG"
 
@@ -85,15 +136,19 @@ else
 fi
 
 # Apply patches
-echo "Applying patches from $PATCHES_DIR..."
-for patch in "$PATCHES_DIR"/*.patch; do
-    if [ -f "$patch" ]; then
+echo "Checking for patches in $PATCHES_DIR..."
+shopt -s nullglob  # Make globs expand to nothing if no matches
+patches=("$PATCHES_DIR"/*.patch)
+if [ ${#patches[@]} -gt 0 ]; then
+    echo "Applying ${#patches[@]} patch(es)..."
+    for patch in "${patches[@]}"; do
         echo "Applying patch: $(basename "$patch")"
         patch -p1 --ignore-whitespace -N < "$patch"
-    else
-        echo "No patches found in $PATCHES_DIR."
-    fi
-done
+    done
+else
+    echo "No patches found in $PATCHES_DIR, skipping patch application."
+fi
+shopt -u nullglob  # Restore default glob behavior
 
 # Build the kernel, modules, and DTBs
 echo "Starting kernel build..."
@@ -123,16 +178,36 @@ cp arch/arm64/boot/Image "$IMAGE_OUTPUT"
 find arch/arm64/boot/dts/ -name '*.dtb' -exec cp {} "$DTB_OUTPUT_DIR" \;
 find arch/arm64/boot/dts/overlays/ -name '*.dtbo' -exec cp {} "$DTBO_OUTPUT_DIR" \;
 
+prepare_kernel_headers() {
+    echo "Preparing kernel headers..."
+    
+    mkdir -p "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION"
+    mkdir -p "$HEADERS_OUTPUT_DIR/lib/modules/$KERNEL_VERSION/build"
+
+    echo "Copying kernel headers..."
+    make ARCH="$ARCH" CROSS_COMPILE="$CROSS_COMPILE" \
+        INSTALL_HDR_PATH="$HEADERS_OUTPUT_DIR/usr" \
+        headers_install
+
+    echo "Copying kernel source for headers..."
+    cp -a "include" "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/"
+    cp -a "arch/$ARCH/include" "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/arch/"
+    
+    cp Makefile "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/"
+    cp .config "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/"
+    cp -a scripts "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/"
+
+    ln -sf "/usr/src/linux-headers-$KERNEL_VERSION" \
+        "$HEADERS_OUTPUT_DIR/lib/modules/$KERNEL_VERSION/build"
+}
+
 # Prepare Debian package
 echo "Preparing Debian package..."
 
 # Retrieve kernel version and set package version
 KERNEL_VERSION=$(make kernelrelease)
 BUILD_DATE=$(date +%Y%m%d)
-PACKAGE_VERSION="${KERNEL_VERSION}-${BUILD_DATE}"  
-HEADERS_PACKAGE_VERSION="${BUILD_DATE}" 
-
-HEADERS_PACKAGE_NAME="linux-headers-${KERNEL_VERSION}"
+PACKAGE_VERSION="${KERNEL_VERSION}-${BUILD_DATE}"
 
 echo "Kernel Version: $KERNEL_VERSION"
 echo "Build Date: $BUILD_DATE"
@@ -146,11 +221,25 @@ mkdir -p "$PACKAGE_DIR/DEBIAN" \
          "$PACKAGE_DIR/lib/modules/$KERNEL_VERSION"
 
 # Copy files to package directory
+echo "Copying kernel image..."
 cp "$IMAGE_OUTPUT" "$PACKAGE_DIR/usr/local/lib/wlanpi-kernel/boot/firmware/"
-cp "$DTB_OUTPUT_DIR"*.dtb "$PACKAGE_DIR/usr/local/lib/wlanpi-kernel/boot/firmware/"
-cp "$DTBO_OUTPUT_DIR"*.dtbo "$PACKAGE_DIR/usr/local/lib/wlanpi-kernel/boot/firmware/overlays/"
+
+echo "Copying DTB files..."
+if compgen -G "$DTB_OUTPUT_DIR"*.dtb > /dev/null; then
+    cp "$DTB_OUTPUT_DIR"*.dtb "$PACKAGE_DIR/usr/local/lib/wlanpi-kernel/boot/firmware/"
+else
+    echo "Warning: No DTB files found in $DTB_OUTPUT_DIR"
+fi
+
+echo "Copying DTBO overlay files..."
+if compgen -G "$DTBO_OUTPUT_DIR"*.dtbo > /dev/null; then
+    cp "$DTBO_OUTPUT_DIR"*.dtbo "$PACKAGE_DIR/usr/local/lib/wlanpi-kernel/boot/firmware/overlays/"
+else
+    echo "Warning: No DTBO files found in $DTBO_OUTPUT_DIR"
+fi
+
+echo "Copying kernel modules..."
 cp -r "$MODULES_OUTPUT_DIR/$KERNEL_VERSION" "$PACKAGE_DIR/lib/modules/."
-rm -f "$PACKAGE_DIR/lib/modules/$KERNEL_VERSION/build"
 
 # Create DEBIAN/control file
 cat <<EOF > "$PACKAGE_DIR/DEBIAN/control"
@@ -174,14 +263,7 @@ cat <<'EOF' > "$PACKAGE_DIR/DEBIAN/postinst"
 set -e
 
 # Variables
-if [ -d "/boot/firmware" ]; then
-    FIRMWARE_DIR="/boot/firmware"
-elif [ -d "/boot" ]; then
-    FIRMWARE_DIR="/boot"
-else
-    echo "Error: Neither /boot/firmware nor /boot directory found" >&2
-    exit 1
-fi
+FIRMWARE_DIR="/boot/firmware"
 PACKAGE_KERNEL_DIR="/usr/local/lib/wlanpi-kernel/boot/firmware"
 CONFIG_TXT="$FIRMWARE_DIR/config.txt"
 KERNEL_IMAGE="wlanpi-kernel8.img"
@@ -225,90 +307,7 @@ EOF
 # Make postinst script executable
 chmod 755 "$PACKAGE_DIR/DEBIAN/postinst"
 
-# Prepare kernel headers
-echo "Preparing kernel headers..."
-
-mkdir -p "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION"
-mkdir -p "$HEADERS_OUTPUT_DIR/lib/modules/$KERNEL_VERSION/build"
-mkdir -p "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/arch/$ARCH"
-
-echo "Copying kernel headers..."
-make ARCH="$ARCH" CROSS_COMPILE="$CROSS_COMPILE" \
-    INSTALL_HDR_PATH="$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION"
-
-echo "Copying kernel source for headers..."
-cp -a "include" "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/"
-cp -a "arch/$ARCH/include" "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/arch/$ARCH/"
-
-cp Makefile "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/"
-cp .config "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/"
-cp Kconfig "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/"
-
-echo "Copying Kconfig files..."
-find . -name "Kconfig*" -type f | tar cf - -T - | tar xf - -C "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/"
-
-echo "Generating configuration files for module builds..."
-make ARCH="$ARCH" CROSS_COMPILE="$CROSS_COMPILE" modules_prepare
-
-echo "Copying generated configuration files..."
-cp -a include/generated "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/include/"
-cp -a include/config "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/include/"
-mkdir -p "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/arch/$ARCH/include/generated"
-cp -a arch/$ARCH/include/generated/* "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/arch/$ARCH/include/generated/" 2>/dev/null || true
-
-cp Module.symvers "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/"
-cp System.map "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/"
-[ -f Module.order ] && cp Module.order "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/"
-
-cp -a tools "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/"
-cp -a arch/$ARCH/Makefile "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/arch/$ARCH/"
-
-if [ -d "arch/$ARCH/tools" ]; then
-    echo "Copying arch-specific tools..."
-    cp -a arch/$ARCH/tools "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/arch/$ARCH/"
-fi
-
-find arch/$ARCH -name "*.S" -o -name "Kbuild" | \
-    cpio -pdm "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/" 2>/dev/null || true
-
-echo "Rebuilding scripts with Debian GLIBC compatibility..."
-
-sudo apt-get update && sudo apt-get install -y debootstrap
-
-CHROOT_DIR="$BASE_DIR/debian-chroot"
-sudo debootstrap --arch=arm64 bookworm "$CHROOT_DIR" http://deb.debian.org/debian
-
-sudo chroot "$CHROOT_DIR" apt-get update
-sudo chroot "$CHROOT_DIR" apt-get install -y build-essential bc bison flex libssl-dev libelf-dev
-
-echo "Removing Ubuntu-built script binaries..."
-find "$KERNEL_SRC_DIR/scripts" -type f -executable | while read f; do
-    if file "$f" | grep -q "ELF"; then
-        rm -f "$f"
-        echo "Removed: $f"
-    fi
-done
-
-sudo mount --bind "$KERNEL_SRC_DIR" "$CHROOT_DIR/mnt"
-
-echo "Building scripts and module tools in Debian chroot..."
-sudo chroot "$CHROOT_DIR" /bin/bash -c "cd /mnt && make modules_prepare" || {
-    echo "ERROR: Failed to build scripts in chroot"
-    sudo umount "$CHROOT_DIR/mnt" || true
-    exit 1
-}
-
-sudo umount "$CHROOT_DIR/mnt"
-
-if ! ldd "$KERNEL_SRC_DIR/scripts/mod/modpost" | grep -q "libc.so.6"; then
-    echo "ERROR: modpost not properly linked"
-    exit 1
-fi
-
-cp -a scripts "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/"
-
-ln -sf "/usr/src/linux-headers-$KERNEL_VERSION" \
-    "$HEADERS_OUTPUT_DIR/lib/modules/$KERNEL_VERSION/build"
+prepare_kernel_headers
 
 # Create headers package directory
 HEADERS_PACKAGE_DIR="$BASE_DIR/wlanpi-kernel-headers-package"
@@ -318,12 +317,10 @@ mkdir -p "$HEADERS_PACKAGE_DIR/DEBIAN" \
          "$HEADERS_PACKAGE_DIR/lib/modules/$KERNEL_VERSION"
 
 # Copy headers to package directory
-cp -r "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION/." \
+cp -r "$HEADERS_OUTPUT_DIR/usr/src/linux-headers-$KERNEL_VERSION"/* \
     "$HEADERS_PACKAGE_DIR/usr/src/linux-headers-$KERNEL_VERSION/"
-
-mkdir -p "$HEADERS_PACKAGE_DIR/lib/modules/$KERNEL_VERSION"
-ln -sf "/usr/src/linux-headers-$KERNEL_VERSION" \
-    "$HEADERS_PACKAGE_DIR/lib/modules/$KERNEL_VERSION/build"
+cp -r "$HEADERS_OUTPUT_DIR/lib/modules/$KERNEL_VERSION/build" \
+    "$HEADERS_PACKAGE_DIR/lib/modules/$KERNEL_VERSION/"
 
 # Create DEBIAN/control file for headers package
 cat <<EOF > "$HEADERS_PACKAGE_DIR/DEBIAN/control"
@@ -338,22 +335,60 @@ Description: Linux kernel headers for WLAN Pi Raspberry Pi kernel
  Kernel header files and scripts for WLAN Pi custom kernel development.
 EOF
 
+# Create DEBIAN/postinst script for headers
+cat <<EOF > "$HEADERS_PACKAGE_DIR/DEBIAN/postinst"
+#!/bin/bash
+set -e
+
+# Extract kernel version from package (matches the installed modules directory)
+KERNEL_VERSION="$KERNEL_VERSION"
+
+# Update module build symlink
+if [ -d "/usr/src/linux-headers-\$KERNEL_VERSION" ]; then
+    rm -f "/lib/modules/\$KERNEL_VERSION/build"
+    ln -sf "/usr/src/linux-headers-\$KERNEL_VERSION" "/lib/modules/\$KERNEL_VERSION/build"
+    echo "Kernel headers symlink created for \$KERNEL_VERSION"
+else
+    echo "Warning: Kernel headers directory not found for \$KERNEL_VERSION"
+fi
+
+exit 0
+EOF
+
+# Make postinst script executable
+chmod 755 "$HEADERS_PACKAGE_DIR/DEBIAN/postinst"
+
 # Build the Debian package
 echo "Building Debian package..."
-fakeroot dpkg-deb --build "$PACKAGE_DIR" "$OUTPUT_PATH/${PACKAGE_NAME}_${PACKAGE_VERSION}_arm64.deb"
+dpkg-deb --build "$PACKAGE_DIR" "$OUTPUT_PATH/${PACKAGE_NAME}_${PACKAGE_VERSION}_arm64.deb"
 
 # Build the headers Debian package
 echo "Building Kernel Headers Debian package..."
-fakeroot dpkg-deb --build "$HEADERS_PACKAGE_DIR" \
-    "$OUTPUT_PATH/${HEADERS_PACKAGE_NAME}_${HEADERS_PACKAGE_VERSION}_arm64.deb"
+dpkg-deb --build "$HEADERS_PACKAGE_DIR" \
+    "$OUTPUT_PATH/${HEADERS_PACKAGE_NAME}_${PACKAGE_VERSION}_arm64.deb"
 
 echo "Debian packages created successfully in $OUTPUT_PATH:"
 echo "- ${PACKAGE_NAME}_${PACKAGE_VERSION}_arm64.deb"
-echo "- ${HEADERS_PACKAGE_NAME}_${HEADERS_PACKAGE_VERSION}_arm64.deb"
+echo "- ${HEADERS_PACKAGE_NAME}_${PACKAGE_VERSION}_arm64.deb"
 
 # Clean up temporary package directories
 echo "Cleaning up temporary package directories..."
 rm -rf "$PACKAGE_DIR"
 rm -rf "$HEADERS_PACKAGE_DIR"
 
+# Calculate and display build timing
+BUILD_END_TIME=$(date +%s)
+BUILD_END_TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S %Z')
+BUILD_DURATION=$((BUILD_END_TIME - BUILD_START_TIME))
+BUILD_DURATION_FORMATTED=$(printf '%02d:%02d:%02d' $((BUILD_DURATION/3600)) $((BUILD_DURATION%3600/60)) $((BUILD_DURATION%60)))
+
+echo ""
+echo "========================================"
+echo "Build Summary"
+echo "========================================"
+echo "Started:  ${BUILD_START_TIMESTAMP}"
+echo "Finished: ${BUILD_END_TIMESTAMP}"
+echo "Duration: ${BUILD_DURATION_FORMATTED}"
+echo "========================================"
+echo ""
 echo "Kernel build, module installation, and package creation completed successfully."

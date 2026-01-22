@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-24.04-arm
+    runs-on: ubuntu-24.04
 
     env:
       DISTRO: bookworm
@@ -28,7 +28,7 @@ jobs:
         uses: actions/cache@v3
         with:
           path: cache-apt
-          key: ${{ runner.os }}-apt-${{ hashFiles('build-kernel.sh') }}
+          key: ${{ runner.os }}-apt-${{ hashFiles('**/build-kernel.sh') }}
           restore-keys: |
             ${{ runner.os }}-apt-
 
@@ -51,7 +51,7 @@ jobs:
         uses: actions/cache@v3
         with:
           path: linux
-          key: ${{ runner.os }}-kernel-${{ hashFiles('build-kernel.sh') }}
+          key: ${{ runner.os }}-kernel-${{ hashFiles('**/build-kernel.sh') }}
           restore-keys: |
             ${{ runner.os }}-kernel-
 
@@ -68,12 +68,14 @@ jobs:
 
       # Step 7: Make the build script executable
       - name: Make Build Script Executable
-        run: chmod +x build-kernel.sh
+        run: chmod +x build-kernel-dual.sh
 
       # Step 8: Execute the build script
       - name: Execute Build Script
         id: build-kernel
-        run: ./build-kernel.sh
+        env:
+          CI: true
+        run: ./build-kernel-dual.sh both
 
       # Step 9: Extract Kernel Version and Date
       - name: Extract Kernel Version and Date
@@ -92,7 +94,12 @@ jobs:
               echo "ERROR: No .deb files found in output directory."
           fi
 
-          KERNEL_DEB=$(ls output/wlanpi-kernel-bookworm_*.deb 2>/dev/null | head -n 1)
+          # Use the unified dual kernel package for version extraction
+          KERNEL_DEB=$(ls output/wlanpi-kernel-bookworm_*.deb 2>/dev/null | grep -v "pi4\|pi5" | head -n 1)
+          if [ -z "$KERNEL_DEB" ]; then
+              # Fallback to pi4 package if dual not found
+              KERNEL_DEB=$(ls output/wlanpi-kernel-bookworm-pi4_*.deb 2>/dev/null | head -n 1)
+          fi
           if [ -z "$KERNEL_DEB" ]; then
               echo "ERROR: Kernel .deb file not found"
           fi
