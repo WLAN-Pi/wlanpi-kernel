@@ -1,20 +1,32 @@
-name: Build WLAN Pi Kernel for Debian Bookworm
+name: Build WLAN Pi kernel for Debian Bookworm
 
 on:
   push:
     branches:
       - 6.12-bookworm
   workflow_dispatch:
+    inputs:
+      build_target:
+        description: 'Kernel variant to build'
+        required: true
+        default: 'both'
+        type: choice
+        options:
+          - both
+          - v8
+          - 2712
 
 jobs:
   build:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-24.04-arm
 
     env:
       DISTRO: bookworm
       VERSION_CODENAME: bookworm
       KERNEL_TARGET_DISTRO: Debian
       KERNEL_TARGET_VERSION: bookworm
+      # Set BUILD_TARGET from workflow input, default to 'both' for push events
+      BUILD_TARGET: ${{ github.event.inputs.build_target || 'both' }}
 
     steps:
       # Step 1: Checkout the repository
@@ -23,8 +35,8 @@ jobs:
         with:
           fetch-depth: 0
 
-      # Step 2: Restore APT Cache
-      - name: Restore APT Cache
+      # Step 2: Restore APT cache
+      - name: Restore APT cache
         uses: actions/cache@v3
         with:
           path: cache-apt
@@ -32,128 +44,119 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-apt-
 
-      # Step 3: Prepare APT Cache for Caching
-      - name: Prepare APT Cache for Caching
+      # Step 3: Prepare APT cache for caching
+      - name: Prepare APT cache for caching
         run: |
           mkdir -p cache-apt
           find /var/cache/apt/archives -path /var/cache/apt/archives/partial -prune -o -type f -name '*.deb' -exec cp {} cache-apt/ \;
 
-      # Step 4: Install Dependencies
-      - name: Install Dependencies
+      # Step 4: Install dependencies
+      - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential git libncurses-dev flex bison libssl-dev \
               bc libelf-dev libudev-dev libpci-dev libiberty-dev autoconf automake libtool \
               libpython3-dev crossbuild-essential-arm64 dpkg-dev gcc-aarch64-linux-gnu
 
-      # Step 5: Cache Kernel Build Directory
-      - name: Cache Kernel Build Directory
+      # Step 5: Cache kernel build directory
+      - name: Cache kernel build directory
         uses: actions/cache@v3
         with:
           path: linux
-          key: ${{ runner.os }}-kernel-${{ hashFiles('**/build-kernel.sh') }}
+          key: ${{ runner.os }}-kernel-${{ env.BUILD_TARGET }}-${{ hashFiles('**/build-kernel.sh') }}
           restore-keys: |
+            ${{ runner.os }}-kernel-${{ env.BUILD_TARGET }}-
             ${{ runner.os }}-kernel-
 
-      # Step 6: Verify Custom Config File Presence
-      - name: Verify Custom Config File Presence
+      # Step 6: Verify Custom Config Files Presence
+      - name: Verify Custom Config Files Presence
         run: |
-          echo "Verifying presence of wlanpi_v8_defconfig in root directory..."
-          if [ -f wlanpi_v8_defconfig ]; then
-            echo "wlanpi_v8_defconfig found."
-          else
-            echo "ERROR: wlanpi_v8_defconfig not found in root directory."
-            exit 1
+          echo "Verifying presence of kernel config files..."
+          echo "Build target: $BUILD_TARGET"
+
+          # Check which configs are needed based on build target
+          if [[ "$BUILD_TARGET" == "v8" || "$BUILD_TARGET" == "both" ]]; then
+            if [ -f wlanpi_v8_defconfig ]; then
+              echo "✓ wlanpi_v8_defconfig found"
+            else
+              echo "ERROR: wlanpi_v8_defconfig not found"
+              exit 1
+            fi
+          fi
+  
+          if [[ "$BUILD_TARGET" == "2712" || "$BUILD_TARGET" == "both" ]]; then
+            if [ -f wlanpi_2712_defconfig ]; then
+              echo "✓ wlanpi_2712_defconfig found"
+            else
+              echo "ERROR: wlanpi_2712_defconfig not found"
+              exit 1
+            fi
           fi
 
       # Step 7: Make the build script executable
-      - name: Make Build Script Executable
-        run: chmod +x build-kernel-dual.sh
+      - name: Make build script executable
+        run: chmod +x build-kernel.sh
 
       # Step 8: Execute the build script
-      - name: Execute Build Script
+      - name: Execute build script
         id: build-kernel
         env:
           CI: true
-        run: ./build-kernel-dual.sh both
+        run: ./build-kernel.sh
 
-      # Step 9: Extract Kernel Version and Date
-      - name: Extract Kernel Version and Date
-        id: version-info
+      # Step 9: List built packages
+      - name: List built packages
+        id: list-packages
         run: |
-          echo "KERNEL_VERSION=unknown" >> $GITHUB_ENV
-          echo "BUILD_DATE=unknown" >> $GITHUB_ENV
-          echo "PACKAGE_NAME=wlanpi-kernel-bookworm" >> $GITHUB_ENV
-          echo "PACKAGE_VERSION=unknown" >> $GITHUB_ENV
-
           echo "Files in output directory:"
-          ls -la output/
+          ls -lh output/
 
-          DEB_FILES=$(find output -name '*.deb' -type f)
-          if [ -z "$DEB_FILES" ]; then
-              echo "ERROR: No .deb files found in output directory."
-          fi
+          echo ""
+          echo "Built packages:"
+          find output -name '*.deb' -type f -exec basename {} \;
 
-          # Use the unified dual kernel package for version extraction
-          KERNEL_DEB=$(ls output/wlanpi-kernel-bookworm_*.deb 2>/dev/null | grep -v "pi4\|pi5" | head -n 1)
-          if [ -z "$KERNEL_DEB" ]; then
-              # Fallback to pi4 package if dual not found
-              KERNEL_DEB=$(ls output/wlanpi-kernel-bookworm-pi4_*.deb 2>/dev/null | head -n 1)
-          fi
-          if [ -z "$KERNEL_DEB" ]; then
-              echo "ERROR: Kernel .deb file not found"
-          fi
-
-          echo Processing kernel deb: $KERNEL_DEB
-          FILENAME=$(basename "$KERNEL_DEB")
-          echo "Processing filename: $FILENAME"
-
-          VERSION=$(echo "$FILENAME" | sed -nE 's/^[^_]+_([^_]+)_.+$/\1/p')
-          if [ -z "$VERSION" ]; then
-              echo "ERROR: Could not extract version from filename"
-              exit 0
-          fi
-
-          echo "Extracted version: $VERSION"
-          BUILD_DATE=$(echo "$VERSION" | grep -o '[0-9]\{8\}$' || echo "")
-          if [ -z "$BUILD_DATE" ]; then
-              echo "ERROR: Could not extract build date from version"
-              echo "KERNEL_VERSION=$VERSION" >> $GITHUB_ENV
-              echo "PACKAGE_VERSION=$VERSION" >> $GITHUB_ENV
-              exit 0
-          fi
-          
-          KERNEL_VERSION=${VERSION%-$BUILD_DATE}
-          if [ -z "$KERNEL_VERSION" ]; then
-              echo "ERROR: Could not extract kernel version"
-              echo "KERNEL_VERSION=$VERSION" >> $GITHUB_ENV
-              echo "BUILD_DATE=$BUILD_DATE" >> $GITHUB_ENV
-              echo "PACKAGE_VERSION=$VERSION" >> $GITHUB_ENV
-              exit 0
-          fi
-
-          echo "KERNEL_VERSION=$KERNEL_VERSION" >> $GITHUB_ENV
-          echo "BUILD_DATE=$BUILD_DATE" >> $GITHUB_ENV
-          echo "PACKAGE_NAME=wlanpi-kernel-bookworm" >> $GITHUB_ENV
-          echo "PACKAGE_VERSION=$VERSION" >> $GITHUB_ENV
-          
-          echo "Extracted values:"
-          echo "KERNEL_VERSION=$KERNEL_VERSION"
-          echo "BUILD_DATE=$BUILD_DATE"
-          echo "PACKAGE_VERSION=$VERSION"
-
-      # Step 10: Debug Kernel and Package Versions
-      - name: Debug Kernel and Package Versions
-        run: |
-          echo "Kernel Version: ${{ env.KERNEL_VERSION }}"
-          echo "Build Date: ${{ env.BUILD_DATE }}"
-          echo "Package Name: ${{ env.PACKAGE_NAME }}"
-          echo "Package Version: ${{ env.PACKAGE_VERSION }}"
-
-      # Step 11: Upload Debian Package as Artifact
-      - name: Upload Debian Package
+      # Step 10: Upload v8 kernel package
+      - name: Upload v8 kernel package
+        if: ${{ env.BUILD_TARGET == 'v8' || env.BUILD_TARGET == 'both' }}
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.PACKAGE_NAME }}-${{ env.KERNEL_VERSION }}-${{ env.BUILD_DATE }}
-          path: output/*.deb
+          name: wlanpi-kernel-bookworm-v8
+          path: output/wlanpi-kernel-bookworm-v8_*.deb
+          if-no-files-found: warn
+
+      # Step 11: Upload v8 headers package
+      - name: Upload v8 headers package
+        if: ${{ env.BUILD_TARGET == 'v8' || env.BUILD_TARGET == 'both' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: wlanpi-kernel-headers-bookworm-v8
+          path: output/wlanpi-kernel-headers-bookworm-v8_*.deb
+          if-no-files-found: warn
+
+      # Step 12: Upload 2712 kernel package
+      - name: Upload 2712 Kernel Package
+        if: ${{ env.BUILD_TARGET == '2712' || env.BUILD_TARGET == 'both' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: wlanpi-kernel-bookworm-2712
+          path: output/wlanpi-kernel-bookworm-2712_*.deb
+          if-no-files-found: warn
+
+      # Step 13: Upload 2712 headers package
+      - name: Upload 2712 headers package
+        if: ${{ env.BUILD_TARGET == '2712' || env.BUILD_TARGET == 'both' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: wlanpi-kernel-headers-bookworm-2712
+          path: output/wlanpi-kernel-headers-bookworm-2712_*.deb
+          if-no-files-found: warn
+
+      # Step 14: Upload dual kernel package
+      - name: Upload dual kernel package
+        if: ${{ env.BUILD_TARGET == 'both' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: wlanpi-kernel-bookworm-dual
+          path: output/wlanpi-kernel-bookworm_*.deb
+          if-no-files-found: warn
 
