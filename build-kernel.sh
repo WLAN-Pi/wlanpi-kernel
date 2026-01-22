@@ -206,12 +206,12 @@ else
     git fetch --depth=1 origin "$KERNEL_BRANCH":"$KERNEL_BRANCH" 2>/dev/null || \
     git fetch --depth=1 origin "$KERNEL_BRANCH"
 
-    # Checkout the branch
-    git checkout "$KERNEL_BRANCH" 2>/dev/null || \
-    git checkout -b "$KERNEL_BRANCH" FETCH_HEAD
+    # Clean working directory before checkout
+    git reset --hard HEAD 2>/dev/null || true
+    git clean -fdx 2>/dev/null || true
 
-    # Reset to latest
-    git reset --hard FETCH_HEAD
+    # Force checkout the branch (-B creates or resets branch)
+    git checkout -B "$KERNEL_BRANCH" FETCH_HEAD
     cd "$BASE_DIR"
 fi
 
