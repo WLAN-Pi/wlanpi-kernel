@@ -4,11 +4,13 @@
 
 The WLAN Pi kernel build system creates **three separate kernel packages** to support different deployment scenarios:
 
-1. **`wlanpi-kernel-bookworm-pi4`** - Pi 4/CM4 only (space-optimized for 8GB eMMC)
-2. **`wlanpi-kernel-bookworm-pi5`** - Pi 5 only
+1. **`wlanpi-kernel-bookworm-v8`** - Pi 4/CM4 only (v8, 4KB pages, space-optimized for 8GB eMMC)
+2. **`wlanpi-kernel-bookworm-2712`** - Pi 5 only (2712, 16KB pages)
 3. **`wlanpi-kernel-bookworm`** - Unified package with both kernels (for systems with ample storage)
 
 This conditional packaging approach allows WLAN Pi to optimize for both **space-constrained deployments** (wlanpi1-lite on 8GB eMMC) and **unified multi-platform deployments** (wlanpi2-full on 32GB+ SD cards).
+
+> **Note on dual-kernel package:** The unified `wlanpi-kernel-bookworm` package containing both v8 and 2712 kernels is intentionally non-standard for Debian packaging. This design allows a single system image (wlanpi2-full) to be flashed onto either Pi 4 or Pi 5 hardware without requiring users to know which platform they have. The Raspberry Pi firmware automatically selects the appropriate kernel at boot based on hardware detection. For space-constrained deployments or standard Debian practices, use the variant-specific packages (`-v8` or `-2712`) instead.
 
 ## Why dual kernels?
 
@@ -46,23 +48,23 @@ The package includes two kernel images:
 **Three kernel packages created:**
 
 ```
-# Pi 4 only package (space-optimized)
-wlanpi-kernel-bookworm-pi4_<version>_arm64.deb
+# v8 package (Pi 4/CM4 only, space-optimized)
+wlanpi-kernel-bookworm-v8_<version>_arm64.deb
 ├── /usr/local/lib/wlanpi-kernel/boot/firmware/
 │   ├── wlanpi-kernel8.img              # Pi 4 kernel only
 │   ├── *.dtb                           # Device Tree Blobs
 │   └── overlays/*.dtbo                 # Device Tree overlays
 └── /lib/modules/
-    └── 6.17.y-v8-wlanpi/               # Pi 4 modules only
+    └── 6.18.x-v8-wlanpi/               # Pi 4 modules only
 
-# Pi 5 only package
-wlanpi-kernel-bookworm-pi5_<version>_arm64.deb
+# 2712 package (Pi 5 only)
+wlanpi-kernel-bookworm-2712_<version>_arm64.deb
 ├── /usr/local/lib/wlanpi-kernel/boot/firmware/
 │   ├── wlanpi-kernel_2712.img          # Pi 5 kernel only
 │   ├── *.dtb                           # Device Tree Blobs
 │   └── overlays/*.dtbo                 # Device Tree overlays
 └── /lib/modules/
-    └── 6.17.y-2712-wlanpi/             # Pi 5 modules only
+    └── 6.18.x-2712-wlanpi/             # Pi 5 modules only
 
 # Unified dual kernel package
 wlanpi-kernel-bookworm_<version>_arm64.deb
@@ -72,25 +74,25 @@ wlanpi-kernel-bookworm_<version>_arm64.deb
 │   ├── *.dtb                           # Device Tree Blobs (shared)
 │   └── overlays/*.dtbo                 # Device Tree overlays (shared)
 └── /lib/modules/
-    ├── 6.17.y-v8-wlanpi/               # Pi 4 modules
-    └── 6.17.y-2712-wlanpi/             # Pi 5 modules
+    ├── 6.18.x-v8-wlanpi/               # Pi 4 modules
+    └── 6.18.x-2712-wlanpi/             # Pi 5 modules
 ```
 
 **Two separate headers packages:**
 
-- `wlanpi-kernel-headers-bookworm-pi4_<version>_arm64.deb` (~9MB)
-- `wlanpi-kernel-headers-bookworm-pi5_<version>_arm64.deb` (~9MB)
+- `wlanpi-kernel-headers-bookworm-v8_<version>_arm64.deb`
+- `wlanpi-kernel-headers-bookworm-2712_<version>_arm64.deb`
 
 ## Which package should I use?
 
 ### Package selection guide
 
-| Deployment Scenario | Package | Installed Size | Rationale |
-|---------------------|---------|----------------|-----------|
-| **wlanpi1-lite** (8GB eMMC, dual-partition) | `wlanpi-kernel-bookworm-pi4` | 60 MB | Space-optimized for CM4 with constrained storage |
-| **wlanpi1-full** (32GB+ SD card) | `wlanpi-kernel-bookworm` | 115 MB | Unified image boots on both Pi 4 and Pi 5 |
-| **Pi 5 only** | `wlanpi-kernel-bookworm-pi5` | 60 MB | Pi 5 specific |
-| **Pi 4 only** | `wlanpi-kernel-bookworm-pi4` | 60 MB | Pi 4 specific |
+| Deployment Scenario | Package | Rationale |
+|---------------------|---------|-----------|
+| **wlanpi1-lite** (8GB eMMC, dual-partition) | `wlanpi-kernel-bookworm-v8` | Space-optimized for CM4 with constrained storage |
+| **wlanpi1-full** (32GB+ SD card) | `wlanpi-kernel-bookworm` | Unified image boots on both Pi 4 and Pi 5 |
+| **Pi 5 only** | `wlanpi-kernel-bookworm-2712` | Pi 5 specific (16KB pages) |
+| **Pi 4 only** | `wlanpi-kernel-bookworm-v8` | Pi 4 specific (4KB pages) |
 
 ### In pi-gen-bookworm
 
@@ -98,7 +100,7 @@ The image build automatically installs the appropriate package:
 
 **wlanpi1-lite** (`/05-kernel/00-packages`):
 ```
-wlanpi-kernel-bookworm-pi4
+wlanpi-kernel-bookworm-v8
 ```
 
 **wlanpi2-full** (`/05-kernel/00-packages`):
@@ -115,17 +117,30 @@ This ensures:
 
 ### Build script
 
-Use the new dual kernel build script:
+Use the unified kernel build script:
 
 ```bash
-./build-kernel-dual.sh
+./build-kernel.sh [TARGET]
+```
+
+**Target options:**
+- `v8` - Build Pi 4/CM4 kernel only
+- `2712` - Build Pi 5 kernel only
+- `both` - Build both kernels (default)
+
+**Examples:**
+```bash
+./build-kernel.sh           # Build both kernels
+./build-kernel.sh v8        # Pi 4 only
+./build-kernel.sh 2712      # Pi 5 only
+BUILD_TARGET=v8 ./build-kernel.sh  # Via environment variable (for CI)
 ```
 
 ### Build process
 
 The script performs the following steps:
 
-1. **Clone/update kernel source** from raspberrypi/linux (rpi-6.17.y branch)
+1. **Clone/update kernel source** from raspberrypi/linux (rpi-6.18.y branch)
 
 2. **Build Pi 4 kernel (bcm2711):**
 
@@ -147,15 +162,15 @@ The script performs the following steps:
 
 4. **Create three kernel packages:**
 
-   - **Pi 4 only:** `wlanpi-kernel-bookworm-pi4` (kernel8.img + Pi 4 modules)
-   - **Pi 5 only:** `wlanpi-kernel-bookworm-pi5` (kernel_2712.img + Pi 5 modules)
+   - **v8 (Pi 4 only):** `wlanpi-kernel-bookworm-v8` (kernel8.img + v8 modules)
+   - **2712 (Pi 5 only):** `wlanpi-kernel-bookworm-2712` (kernel_2712.img + 2712 modules)
    - **Unified:** `wlanpi-kernel-bookworm` (both kernels + both module sets)
    - All packages include shared DTBs and overlays
    - Each has appropriate postinst script for installation
 
 5. **Create headers packages:**
 
-   - Separate packages for Pi 4 and Pi 5 headers
+   - Separate packages for v8 and 2712 headers
    - Allows building kernel modules for either platform
 
 ### wlanpi_v8_defconfig (Pi 4)
@@ -187,7 +202,7 @@ Custom WLAN Pi kernel configuration for Pi 5:
 **For space-constrained systems (8GB eMMC):**
 
 ```bash
-sudo dpkg -i wlanpi-kernel-bookworm-pi4_<version>_arm64.deb
+sudo dpkg -i wlanpi-kernel-bookworm-v8_<version>_arm64.deb
 ```
 
 **For systems with ample storage (32GB+ SD cards):**
@@ -199,17 +214,17 @@ sudo dpkg -i wlanpi-kernel-bookworm_<version>_arm64.deb
 **For Pi 5 only systems:**
 
 ```bash
-sudo dpkg -i wlanpi-kernel-bookworm-pi5_<version>_arm64.deb
+sudo dpkg -i wlanpi-kernel-bookworm-2712_<version>_arm64.deb
 ```
 
 Optionally install headers for your platform:
 
 ```bash
-# For Pi 4/CM4:
-sudo dpkg -i wlanpi-kernel-headers-bookworm-pi4_<version>_arm64.deb
+# For Pi 4/CM4 (v8):
+sudo dpkg -i wlanpi-kernel-headers-bookworm-v8_<version>_arm64.deb
 
-# For Pi 5:
-sudo dpkg -i wlanpi-kernel-headers-bookworm-pi5_<version>_arm64.deb
+# For Pi 5 (2712):
+sudo dpkg -i wlanpi-kernel-headers-bookworm-2712_<version>_arm64.deb
 ```
 
 The postinst script will:
@@ -228,9 +243,8 @@ The pi-gen-bookworm stages install the appropriate package for each image:
 **wlanpi1-lite** (`05-kernel/00-packages`):
 
 ```
-wlanpi-kernel-bookworm-pi4
+wlanpi-kernel-bookworm-v8
 ```
-- Installs: 60 MB
 - Target: CM4 with 8GB eMMC (space-constrained)
 - Boots on: Pi 4, CM4 only
 
@@ -240,7 +254,6 @@ wlanpi-kernel-bookworm-pi4
 wlanpi-kernel-bookworm
 ```
 
-- Installs: 115 MB
 - Target: Pi 4/5 with 32GB+ SD card
 - Boots on: Pi 4, CM4, Pi 5 (unified)
 
@@ -254,8 +267,8 @@ ls -lh /boot/firmware/wlanpi-kernel*.img
 
 Expected output:
 ```
--rw-r--r-- 1 root root 29M Jan 20 12:00 /boot/firmware/wlanpi-kernel8.img
--rw-r--r-- 1 root root 29M Jan 20 12:00 /boot/firmware/wlanpi-kernel_2712.img
+/boot/firmware/wlanpi-kernel8.img
+/boot/firmware/wlanpi-kernel_2712.img
 ```
 
 ### Check loaded kernel
@@ -267,8 +280,8 @@ uname -r
 ```
 
 Expected output:
-- On Pi 4/CM4: `6.17.y-v8-wlanpi`
-- On Pi 5: `6.17.y-2712-wlanpi`
+- On Pi 4/CM4: `6.18.x-v8-wlanpi+` (e.g., `6.18.6-v8-wlanpi+`)
+- On Pi 5: `6.18.x-2712-wlanpi+` (e.g., `6.18.6-2712-wlanpi+`)
 
 ### Check module directories
 
@@ -278,8 +291,8 @@ ls /lib/modules/
 
 Expected output:
 ```
-6.17.y-v8-wlanpi/
-6.17.y-2712-wlanpi/
+6.18.6-v8-wlanpi+/
+6.18.6-2712-wlanpi+/
 ```
 
 ## Maintenance
@@ -303,9 +316,9 @@ When updating WLAN Pi-specific kernel configurations:
 
 ### Kernel version updates
 
-When updating the kernel version (e.g., from rpi-6.17.y to rpi-6.18.y):
+When updating the kernel version (e.g., from rpi-6.18.y to rpi-6.18.y):
 
-1. Update `KERNEL_BRANCH` in `build-kernel-dual.sh`
+1. Update `KERNEL_BRANCH` in `build-kernel.sh`
 2. Verify both `bcm2711_defconfig` and `bcm2712_defconfig` still exist upstream
 3. Test build both kernels
 4. Test boot on both Pi 4 and Pi 5 hardware (if available)
@@ -330,8 +343,8 @@ This conditional kernel packaging approach provides flexibility similar to Raspb
 
 | Raspberry Pi OS | WLAN Pi Equivalent | Purpose |
 |----------------|-------------------|---------|
-| `linux-image-rpi-v8` | `wlanpi-kernel-bookworm-pi4` | Pi 4/CM4 kernel only |
-| `linux-image-rpi-2712` | `wlanpi-kernel-bookworm-pi5` | Pi 5 kernel only |
+| `linux-image-rpi-v8` | `wlanpi-kernel-bookworm-v8` | Pi 4/CM4 kernel only (v8, 4KB pages) |
+| `linux-image-rpi-2712` | `wlanpi-kernel-bookworm-2712` | Pi 5 kernel only (2712, 16KB pages) |
 | Both installed | `wlanpi-kernel-bookworm` | Unified package (both in one) |
 
 **Key difference:** WLAN Pi offers three package options to accommodate both space-constrained (8GB eMMC) and unified (32GB+ SD) deployment scenarios, whereas upstream expects users to install both packages separately.
