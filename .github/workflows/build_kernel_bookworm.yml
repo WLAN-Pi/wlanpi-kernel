@@ -160,3 +160,15 @@ jobs:
           path: output/wlanpi-kernel-bookworm_*.deb
           if-no-files-found: warn
 
+  slack-workflow-status:
+    if: ${{ always() && (github.repository_owner == 'WLAN-Pi') && (! github.event.pull_request.head.repo.fork) }}
+    name: Post Workflow Status to Slack
+    needs:
+      - build
+    runs-on: "${{ vars.RUNS_ON || 'ubuntu-22.04' }}"
+    steps:
+      - name: Slack Workflow Notification
+        uses: Gamesight/slack-workflow-status@master
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          slack_webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
