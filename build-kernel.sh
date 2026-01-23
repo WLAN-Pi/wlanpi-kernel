@@ -471,48 +471,89 @@ EOF
 #!/bin/bash
 set -e
 
-FIRMWARE_DIR="/boot/firmware"
 PACKAGE_KERNEL_DIR="/usr/local/lib/wlanpi-kernel/boot/firmware"
+
+if [ ! -d "$PACKAGE_KERNEL_DIR" ]; then
+    echo "ERROR: Package directory $PACKAGE_KERNEL_DIR not found"
+    exit 1
+fi
+
+# Detect boot partition location
+# Priority: existing kernel location, then /boot/firmware, then /boot
+if [ -f "/boot/firmware/wlanpi-kernel8.img" ] || [ -f "/boot/firmware/wlanpi-kernel_2712.img" ]; then
+    FIRMWARE_DIR="/boot/firmware"
+elif [ -f "/boot/wlanpi-kernel8.img" ] || [ -f "/boot/wlanpi-kernel_2712.img" ]; then
+    FIRMWARE_DIR="/boot"
+elif [ -d "/boot/firmware" ]; then
+    FIRMWARE_DIR="/boot/firmware"
+elif [ -d "/boot" ]; then
+    FIRMWARE_DIR="/boot"
+else
+    echo "ERROR: Boot partition not found"
+    exit 1
+fi
+
 CONFIG_TXT="$FIRMWARE_DIR/config.txt"
 
 echo "Installing WLAN Pi kernel to $FIRMWARE_DIR..."
 
-if [ ! -d "$FIRMWARE_DIR" ]; then
-    echo "ERROR: Firmware directory $FIRMWARE_DIR does not exist."
+if [ ! -f "$CONFIG_TXT" ]; then
+    echo "ERROR: $CONFIG_TXT not found"
     exit 1
 fi
 
+if [ ! -f "$CONFIG_TXT.wlanpi-kernel.bak" ]; then
+    cp -f "$CONFIG_TXT" "$CONFIG_TXT.wlanpi-kernel.bak"
+fi
 mkdir -p "$FIRMWARE_DIR/overlays"
 
-# Copy kernel images (whatever is in the package)
-for img in "$PACKAGE_KERNEL_DIR"/*.img; do
-    if [ -f "$img" ]; then
-        echo "Installing: $(basename "$img")"
-        cp -f "$img" "$FIRMWARE_DIR/"
-    fi
+# Install kernel images
+shopt -s nullglob
+kernel_images=("$PACKAGE_KERNEL_DIR"/*.img)
+if [ ${#kernel_images[@]} -eq 0 ]; then
+    echo "ERROR: No kernel images found in package"
+    exit 1
+fi
+
+for img in "${kernel_images[@]}"; do
+    echo "Installing $(basename "$img")..."
+    cp -f "$img" "$FIRMWARE_DIR/"
 done
 
-# Copy DTBs and overlays
-cp -f "$PACKAGE_KERNEL_DIR/"*.dtb "$FIRMWARE_DIR/" 2>/dev/null || true
-cp -f "$PACKAGE_KERNEL_DIR/overlays/"*.dtbo "$FIRMWARE_DIR/overlays/" 2>/dev/null || true
+# Install DTBs
+dtb_files=("$PACKAGE_KERNEL_DIR"/*.dtb)
+if [ ${#dtb_files[@]} -gt 0 ]; then
+    echo "Installing ${#dtb_files[@]} DTB files..."
+    cp -f "$PACKAGE_KERNEL_DIR/"*.dtb "$FIRMWARE_DIR/"
+fi
 
-# Update config.txt
+# Install overlays
+dtbo_files=("$PACKAGE_KERNEL_DIR/overlays/"*.dtbo)
+if [ ${#dtbo_files[@]} -gt 0 ]; then
+    echo "Installing ${#dtbo_files[@]} overlay files..."
+    cp -f "$PACKAGE_KERNEL_DIR/overlays/"*.dtbo "$FIRMWARE_DIR/overlays/"
+fi
+shopt -u nullglob
+
+# Select kernel for config.txt
 if [ -f "$FIRMWARE_DIR/wlanpi-kernel8.img" ]; then
     KERNEL_IMG="wlanpi-kernel8.img"
 elif [ -f "$FIRMWARE_DIR/wlanpi-kernel_2712.img" ]; then
     KERNEL_IMG="wlanpi-kernel_2712.img"
 else
-    echo "WARNING: No WLAN Pi kernel image found"
-    exit 0
+    echo "ERROR: No kernel image found after installation"
+    exit 1
 fi
 
+# Update config.txt
+echo "Configuring boot to use $KERNEL_IMG..."
 if grep -q "^kernel=" "$CONFIG_TXT"; then
     sed -i "s|^kernel=.*|kernel=$KERNEL_IMG|" "$CONFIG_TXT"
 else
     echo "kernel=$KERNEL_IMG" >> "$CONFIG_TXT"
 fi
 
-echo "Kernel installation complete!"
+echo "Installation complete"
 exit 0
 POSTINST_EOF
 

@@ -262,45 +262,77 @@ cat <<'EOF' > "$PACKAGE_DIR/DEBIAN/postinst"
 #!/bin/bash
 set -e
 
-# Variables
-FIRMWARE_DIR="/boot/firmware"
 PACKAGE_KERNEL_DIR="/usr/local/lib/wlanpi-kernel/boot/firmware"
-CONFIG_TXT="$FIRMWARE_DIR/config.txt"
 KERNEL_IMAGE="wlanpi-kernel8.img"
 
-echo "Post-installation: Installing kernel image and DTBs to $FIRMWARE_DIR..."
-
-# Ensure the firmware directory exists
-if [ ! -d "$FIRMWARE_DIR" ]; then
-    echo "ERROR: Firmware directory $FIRMWARE_DIR does not exist."
+if [ ! -d "$PACKAGE_KERNEL_DIR" ]; then
+    echo "ERROR: Package directory $PACKAGE_KERNEL_DIR not found"
     exit 1
 fi
 
-# Ensure the overlays directory exists; create it if it doesn't
-if [ ! -d "$FIRMWARE_DIR/overlays" ]; then
-    echo "Overlays directory $FIRMWARE_DIR/overlays does not exist. Creating it..."
-    mkdir -p "$FIRMWARE_DIR/overlays"
+if [ ! -f "$PACKAGE_KERNEL_DIR/$KERNEL_IMAGE" ]; then
+    echo "ERROR: Kernel image $KERNEL_IMAGE not found in package"
+    exit 1
 fi
 
-# Copy kernel image
-echo "Copying kernel image..."
+# Detect boot partition location
+# Priority: existing kernel location, then /boot/firmware, then /boot
+if [ -f "/boot/firmware/$KERNEL_IMAGE" ]; then
+    FIRMWARE_DIR="/boot/firmware"
+elif [ -f "/boot/$KERNEL_IMAGE" ]; then
+    FIRMWARE_DIR="/boot"
+elif [ -d "/boot/firmware" ]; then
+    FIRMWARE_DIR="/boot/firmware"
+elif [ -d "/boot" ]; then
+    FIRMWARE_DIR="/boot"
+else
+    echo "ERROR: Boot partition not found"
+    exit 1
+fi
+
+CONFIG_TXT="$FIRMWARE_DIR/config.txt"
+
+echo "Installing kernel to $FIRMWARE_DIR..."
+
+if [ ! -f "$CONFIG_TXT" ]; then
+    echo "ERROR: $CONFIG_TXT not found"
+    exit 1
+fi
+
+if [ ! -f "$CONFIG_TXT.wlanpi-kernel.bak" ]; then
+    cp -f "$CONFIG_TXT" "$CONFIG_TXT.wlanpi-kernel.bak"
+fi
+mkdir -p "$FIRMWARE_DIR/overlays"
+
+# Install kernel
+echo "Installing $KERNEL_IMAGE..."
 cp -f "$PACKAGE_KERNEL_DIR/$KERNEL_IMAGE" "$FIRMWARE_DIR/"
 
-# Copy DTBs
-echo "Copying DTBs..."
-cp -f "$PACKAGE_KERNEL_DIR/"*.dtb "$FIRMWARE_DIR/"
-cp -f "$PACKAGE_KERNEL_DIR/overlays/"*.dtbo "$FIRMWARE_DIR/overlays/"
+# Install DTBs
+shopt -s nullglob
+dtb_files=("$PACKAGE_KERNEL_DIR"/*.dtb)
+if [ ${#dtb_files[@]} -gt 0 ]; then
+    echo "Installing ${#dtb_files[@]} DTB files..."
+    cp -f "$PACKAGE_KERNEL_DIR/"*.dtb "$FIRMWARE_DIR/"
+fi
 
-# Update config.txt with the new kernel
-echo "Updating $CONFIG_TXT with the new kernel parameter..."
+# Install overlays
+dtbo_files=("$PACKAGE_KERNEL_DIR/overlays/"*.dtbo)
+if [ ${#dtbo_files[@]} -gt 0 ]; then
+    echo "Installing ${#dtbo_files[@]} overlay files..."
+    cp -f "$PACKAGE_KERNEL_DIR/overlays/"*.dtbo "$FIRMWARE_DIR/overlays/"
+fi
+shopt -u nullglob
+
+# Update config.txt
+echo "Configuring boot to use $KERNEL_IMAGE..."
 if grep -q "^kernel=" "$CONFIG_TXT"; then
     sed -i "s|^kernel=.*|kernel=$KERNEL_IMAGE|" "$CONFIG_TXT"
 else
     echo "kernel=$KERNEL_IMAGE" >> "$CONFIG_TXT"
 fi
 
-echo "Kernel image and DTBs installed successfully."
-
+echo "Installation complete"
 exit 0
 EOF
 
