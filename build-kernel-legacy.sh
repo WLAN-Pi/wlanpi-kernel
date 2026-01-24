@@ -361,8 +361,8 @@ Version: $PACKAGE_VERSION
 Section: kernel
 Priority: optional
 Architecture: arm64
-Maintainer: Jerry Olla <jerryolla@gmail.com>
-Depends: $PACKAGE_NAME (= $PACKAGE_VERSION), gcc, make, perl
+Maintainer: Josh Schmelzle <josh@joshschmelzle.com>
+Depends: gcc, make, perl
 Description: Linux kernel headers for WLAN Pi Raspberry Pi kernel
  Kernel header files and scripts for WLAN Pi custom kernel development.
 EOF
