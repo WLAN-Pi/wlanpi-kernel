@@ -1,9 +1,13 @@
-name: Build WLAN Pi kernel for Debian Bookworm
+name: Build and archive WLAN Pi kernel package
 
 on:
   push:
     branches:
       - 6.18-bookworm
+    paths:
+      - 'patches/**'
+      - 'wlanpi_*_defconfig'
+      - 'build-kernel*.sh'
   workflow_dispatch:
     inputs:
       build_target:

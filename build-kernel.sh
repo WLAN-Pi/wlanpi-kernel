@@ -671,7 +671,7 @@ Section: kernel
 Priority: optional
 Architecture: arm64
 Maintainer: Josh Schmelzle <josh@joshschmelzle.com>
-Depends: $KERNEL_PKG_NAME (= $VARIANT_PKG_VERSION), gcc, make, perl
+Depends: gcc, make, perl
 Description: Linux kernel headers for WLAN Pi Raspberry Pi $VARIANT_NAME kernel
  Kernel header files and scripts for WLAN Pi custom kernel development ($VARIANT_NAME variant).
  Version: $KVER
