@@ -18,6 +18,13 @@ CONFIG_USB_SUPPORT=y
 CONFIG_USB=y
 CONFIG_SPI=y
 CONFIG_USB_MAX3421_HCD=y
+
+# USB Gadget - DWC2 as module for proper USB enumeration timing
+# RPi changed this to =y in June 2025, but that caused enumeration
+# failures with some USB hosts because DWC2 initializes
+# before the gadget is configured for us.
+# https://github.com/raspberrypi/linux/pull/6888/changes/c117d4026e0cfba8069e7873d2200cf516b51f78
+CONFIG_USB_DWC2=m
 CONFIG_IKCONFIG=y
 CONFIG_BOOT_CONFIG=y
 CONFIG_BOOT_CONFIG_EMBED=y
