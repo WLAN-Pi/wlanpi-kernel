@@ -1,0 +1,16 @@
+--- linux/net/mac80211/mlme.c	2026-02-09 11:13:33.593060821 -0500
++++ mlme.c	2026-02-09 15:14:10.733815545 -0500
+@@ -6934,9 +6934,10 @@
+ 	}
+ 
+ 	if ((ncrc == link->u.mgd.beacon_crc && link->u.mgd.beacon_crc_valid) ||
+-	    (ext && ieee80211_is_s1g_short_beacon(ext->frame_control,
+-						  parse_params.start,
+-						  parse_params.len)))
++	    (ext && ieee80211_is_s1g_short_beacon(ext->frame_control)))//,
++//HACK 3
++//						  parse_params.start,
++//						  parse_params.len)))
+ 		goto free;
+ 	link->u.mgd.beacon_crc = ncrc;
+ 	link->u.mgd.beacon_crc_valid = true;

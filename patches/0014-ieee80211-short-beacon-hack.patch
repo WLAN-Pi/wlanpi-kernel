@@ -1,0 +1,68 @@
+--- linux/include/linux/ieee80211.h	2026-02-09 11:12:58.437692744 -0500
++++ ieee80211.h	2026-02-09 11:20:23.745764255 -0500
+@@ -1268,6 +1268,14 @@
+ 			u8 change_seq;
+ 			u8 variable[0];
+ 		} __packed s1g_beacon;
++//HACK 2
++                struct {
++                        u8 sa[ETH_ALEN];
++                        __le32 timestamp;
++                        u8 change_seq;
++                        u8 next_tbtt[3];
++                        u8 variable[0];
++                } __packed s1g_short_beacon;
+ 	} u;
+ } __packed __aligned(2);
+ 
+@@ -4870,22 +4878,37 @@
+  *	either no elements or the first element is not the beacon compatibility
+  *	element, we have a short beacon.
+  */
+-static inline bool ieee80211_is_s1g_short_beacon(__le16 fc, const u8 *variable,
+-						 size_t variable_len)
++//static inline bool ieee80211_is_s1g_short_beacon(__le16 fc, const u8 *variable,
++//						 size_t variable_len)
++//{
++//	if (!ieee80211_is_s1g_beacon(fc))
++//		return false;
++//
++//	/*
++//	 * If the frame does not contain at least 1 element (this is perfectly
++//	 * valid in a short beacon) and is an S1G beacon, we have a short
++//	 * beacon.
++//	 */
++//	if (variable_len < 2)
++//		return true;
++//
++//	return variable[0] != WLAN_EID_S1G_BCN_COMPAT;
++//}
++
++//HACK 1
++/**
++ * ieee80211_is_s1g_short_beacon - check if frame is an S1G short beacon
++ * @fc: frame control bytes in little-endian byteorder
++ * Return: whether or not the frame is an S1G short beacon,
++ *      i.e. it is an S1G beacon with 'next TBTT' flag set
++ */
++static inline bool ieee80211_is_s1g_short_beacon(__le16 fc)
+ {
+-	if (!ieee80211_is_s1g_beacon(fc))
+-		return false;
++        return ieee80211_is_s1g_beacon(fc) &&
++                (fc & cpu_to_le16(IEEE80211_S1G_BCN_NEXT_TBTT));
++}
+ 
+-	/*
+-	 * If the frame does not contain at least 1 element (this is perfectly
+-	 * valid in a short beacon) and is an S1G beacon, we have a short
+-	 * beacon.
+-	 */
+-	if (variable_len < 2)
+-		return true;
+ 
+-	return variable[0] != WLAN_EID_S1G_BCN_COMPAT;
+-}
+ 
+ struct element {
+ 	u8 id;
