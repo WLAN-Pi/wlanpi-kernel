@@ -121,7 +121,7 @@ echo ""
 
 # Configuration Variables
 KERNEL_REPO="https://github.com/raspberrypi/linux.git"
-KERNEL_BRANCH="rpi-6.12.y"
+KERNEL_BRANCH="rpi-6.19.y"
 KERNEL_SRC_DIR="$BASE_DIR/linux"
 OUTPUT_PATH="$BASE_DIR/output"
 CROSS_COMPILE="aarch64-linux-gnu-"
