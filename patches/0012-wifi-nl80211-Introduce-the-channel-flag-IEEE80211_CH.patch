@@ -1,0 +1,70 @@
+From 90ae5c98ca56b4fab6f815549fc8cad22e04369f Mon Sep 17 00:00:00 2001
+From: Andrew Pope <andrew.pope@morsemicro.com>
+Date: Fri, 20 Jun 2025 17:53:09 +1000
+Subject: [PATCH 12/14] wifi: nl80211: Introduce the channel flag
+ IEEE80211_CHAN_IGNORE for BCF disabled channels cherry picked from
+ 2ed640414ee9
+
+In this changeset a a new flag IEEE80211_CHAN_IGNORE, which gets applied to BCF-disabled
+channels on boot, is introduced. When userspace retrieves wiphy information via nl80211
+this flag is translated to NL80211_FREQUENCY_ATTR_DISABLED. This allows us to side-step
+the logic in cfg80211 that considers wider channels unusable (when IEEE80211_CHAN_DISABLED
+is applied), while still presenting a channel as being disabled to userspace.
+
+This change will also enforce (in the supplicant & hostap), that a primary (or secondary in
+ 5G land) channel is not disabled before tuning to it.
+
+Approved-by: Adam Baumann
+Approved-by: Dan Callaghan
+Approved-by: Pradeep Reddy
+Approved-by: Ria Polly Thomas
+Approved-by: James Herbert
+Approved-by: Joshua Wilkinson
+---
+ include/net/cfg80211.h | 6 ++++++
+ net/wireless/nl80211.c | 3 +++
+ 2 files changed, 9 insertions(+)
+
+diff --git a/include/net/cfg80211.h b/include/net/cfg80211.h
+index 96121dc14e82..1273bd724eba 100644
+--- a/include/net/cfg80211.h
++++ b/include/net/cfg80211.h
+@@ -127,8 +127,13 @@ struct wiphy;
+  *	even if it is otherwise disabled.
+  * @IEEE80211_CHAN_ALLOW_6GHZ_VLP_AP: Allow using this channel for AP operation
+  *	with very low power (VLP), even if otherwise set to NO_IR.
++<<<<<<< HEAD
+  * @IEEE80211_CHAN_ALLOW_20MHZ_ACTIVITY: Allow activity on a 20 MHz channel,
+  *	even if otherwise set to NO_IR.
++=======
++ * @IEEE80211_CHAN_IGNORE: Mark this channel as disabled when
++ *	communicating channel list via nl80211.
++>>>>>>> 2ed640414ee9 (wifi: nl80211: Introduce the channel flag IEEE80211_CHAN_IGNORE for BCF disabled channels)
+  */
+ enum ieee80211_channel_flags {
+ 	IEEE80211_CHAN_DISABLED			= BIT(0),
+@@ -158,6 +163,7 @@ enum ieee80211_channel_flags {
+ 	IEEE80211_CHAN_CAN_MONITOR		= BIT(24),
+ 	IEEE80211_CHAN_ALLOW_6GHZ_VLP_AP	= BIT(25),
+ 	IEEE80211_CHAN_ALLOW_20MHZ_ACTIVITY     = BIT(26),
++	IEEE80211_CHAN_IGNORE			= BIT(27),
+ };
+ 
+ #define IEEE80211_CHAN_NO_HT40 \
+diff --git a/net/wireless/nl80211.c b/net/wireless/nl80211.c
+index ec8265f2d568..e994b42dcafa 100644
+--- a/net/wireless/nl80211.c
++++ b/net/wireless/nl80211.c
+@@ -1125,6 +1125,9 @@ static int nl80211_msg_put_channel(struct sk_buff *msg, struct wiphy *wiphy,
+ 	if ((chan->flags & IEEE80211_CHAN_DISABLED) &&
+ 	    nla_put_flag(msg, NL80211_FREQUENCY_ATTR_DISABLED))
+ 		goto nla_put_failure;
++	if ((chan->flags & IEEE80211_CHAN_IGNORE) &&
++	    nla_put_flag(msg, NL80211_FREQUENCY_ATTR_DISABLED))
++		goto nla_put_failure;
+ 	if (chan->flags & IEEE80211_CHAN_NO_IR) {
+ 		if (nla_put_flag(msg, NL80211_FREQUENCY_ATTR_NO_IR))
+ 			goto nla_put_failure;
+-- 
+2.34.1
+

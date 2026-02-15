@@ -1,0 +1,39 @@
+From a09b0533e75e1b69f4c4a5a8a50a0dfcb9dff6a9 Mon Sep 17 00:00:00 2001
+From: Sagar Bussa <sagar.bussa@morsemicro.com>
+Date: Thu, 27 Apr 2017 12:45:38 +0530
+Subject: [PATCH 02/14] mac80211: mlme s1g ecsa support cherry picked from
+ mm8db61ec7a55c
+
+Update the STA-side MLME to consider short beacons in channel switch
+time calculations, which effectively considers the time based on DTIM
+beacon intervals, as ECSA IE is advertised in DTIM beacons.
+
+This patch is S1G specific and can have an impact on ECSA functionality
+of other Wi-Fi radios, which delays channel switch operation based on
+DTIM interval.
+---
+ net/mac80211/mlme.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/net/mac80211/mlme.c b/net/mac80211/mlme.c
+index e0766a817f4a..8d27649b3989 100644
+--- a/net/mac80211/mlme.c
++++ b/net/mac80211/mlme.c
+@@ -2615,9 +2615,11 @@ ieee80211_sta_process_chanswitch(struct ieee80211_link_data *link,
+ 					  csa_ie.mode);
+ 
+ 	/* we may have to handle timeout for deactivated link in software */
+-	now = ktime_get_boottime();
+-	csa_time_tu = (max_t(int, csa_ie.count, 1) - 1) * link->conf->beacon_int;
+-	link->u.mgd.csa.time = now + ns_to_ktime(ieee80211_tu_to_usec(csa_time_tu) * NSEC_PER_USEC);
++	now = jiffies;
++	link->u.mgd.csa.time = now +
++			       TU_TO_JIFFIES((max_t(int, csa_ie.count, 1) - 1) *
++					     sdata->vif.bss_conf.dtim_period *
++					     link->conf->beacon_int);
+ 
+ 	if (ieee80211_vif_link_active(&sdata->vif, link->link_id) &&
+ 	    local->ops->channel_switch) {
+-- 
+2.34.1
+
