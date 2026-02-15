@@ -219,6 +219,17 @@ fi
 export ARCH="$ARCH"
 export CROSS_COMPILE="$CROSS_COMPILE"
 
+# Function to build the out of tree Morse Micro driver
+build_morse_driver() {
+# TODO: Complete this function
+# 1. Set variables for repo / related things
+# 2. clone repo
+# 3. Update submodules
+# 4. Make
+# 5. Install modules under lib/modules
+# 6. depmod -a
+}
+
 # Function to build a kernel variant
 build_kernel_variant() {
     local VARIANT="$1"
