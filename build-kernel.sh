@@ -221,31 +221,28 @@ export CROSS_COMPILE="$CROSS_COMPILE"
 
 # Function to build the out of tree Morse Micro driver
 build_morse_driver() {
-    # TODO: Complete this function
-    # 1. Set variables for repo / related things
+    # 
+    # Set variables for repo / related things
     MORSE_DRIVER_REPO="https://github.com/MorseMicro/morse_driver.git"
     MORSE_DRIVER_DIR="$BASE_DIR/morse_driver"
     MORSE_DRIVER_TAG="1.16.4"
-    MORSE_DRIVER_COMMIT="7f95fe3"
-    # 2. clone repo
+    # Clone Morse Driver repo
     git clone --depth=1 --branch "$MORSE_DRIVER_TAG" "$MORSE_DRIVER_REPO" "$MORSE_DRIVER_DIR"
     cd "$MORSE_DRIVER_DIR"
-    #git checkout "$MORSE_DRIVER_COMMIT"
-    # 3. Update submodules
+    # Update submodules
     git submodule update --init --recursive
-    # 4. Make
+    # Make
     make -j"$NUM_CORES" KERNEL_SRC="$KERNEL_SRC_DIR" CROSS_COMPILE="$CROSS_COMPILE" ARCH="$ARCH" CONFIG_WLAN_VENDOR_MORSE=m CONFIG_MORSE_USB=y CONFIG_MORSE_USER_ACCESS=y CONFIG_MORSE_COUNTRY="US" CONFIG_MORSE_VENDOR_COMMAND=y CONFIG_MORSE_MONITOR=y CONFIG_MORSE_DEBUG_MASK=2
-    # 5. Install modules under lib/modules
-   # Get kernel version BEFORE installing modules
-    KERNEL_VERSION=$(make kernelrelease)
+    # Install modules under lib/modules
+    # Get kernel version BEFORE installing modules
+    KERNEL_VERSION=$BCM2711_VERSION
     echo "Kernel version: $KERNEL_VERSION"
 
     echo "Installing Morse modules to $MODULES_OUTPUT_DIR/$KERNEL_VERSION/kernel/net/wireless..."
     cp $MORSE_DRIVER_DIR/morse.ko "$MODULES_OUTPUT_DIR/$KERNEL_VERSION/kernel/net/wireless/"
     cp $MORSE_DRIVER_DIR/dot11ah/dot11ah.ko "$MODULES_OUTPUT_DIR/$KERNEL_VERSION/kernel/net/wireless/"
-    #make INSTALL_MOD_PATH="$OUTPUT_PATH" modules_install
-    # 6. depmod -a
-    #depmod -a -b "$OUTPUT_PATH"
+    # depmod -a
+    #depmod -a -b "$INSTALL_MOD_PATH"
 }
 
 # Function to build a kernel variant
