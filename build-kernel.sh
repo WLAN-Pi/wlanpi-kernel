@@ -221,13 +221,31 @@ export CROSS_COMPILE="$CROSS_COMPILE"
 
 # Function to build the out of tree Morse Micro driver
 build_morse_driver() {
-# TODO: Complete this function
-# 1. Set variables for repo / related things
-# 2. clone repo
-# 3. Update submodules
-# 4. Make
-# 5. Install modules under lib/modules
-# 6. depmod -a
+    # TODO: Complete this function
+    # 1. Set variables for repo / related things
+    MORSE_DRIVER_REPO="https://github.com/MorseMicro/morse_driver.git"
+    MORSE_DRIVER_DIR="$BASE_DIR/morse_driver"
+    MORSE_DRIVER_TAG="1.16.4"
+    MORSE_DRIVER_COMMIT="7f95fe3"
+    # 2. clone repo
+    git clone --depth=1 --branch "$MORSE_DRIVER_TAG" "$MORSE_DRIVER_REPO" "$MORSE_DRIVER_DIR"
+    cd "$MORSE_DRIVER_DIR"
+    git checkout "$MORSE_DRIVER_COMMIT"
+    # 3. Update submodules
+    git submodule update --init --recursive
+    # 4. Make
+    make -j"$NUM_CORES" KERNEL_DIR="$KERNEL_SRC_DIR" CROSS_COMPILE="$CROSS_COMPILE" ARCH="$ARCH" CONFIG_WLAN_VENDOR_MORSE=m CONFIG_MORSE_USB=y CONFIG_MORSE_USER_ACCESS=y CONFIG_MORSE_COUNTRY="US" CONFIG_MORSE_VENDOR_COMMAND=y CONFIG_MORSE_MONITOR=y CONFIG_MORSE_DEBUG_MASK=2
+    # 5. Install modules under lib/modules
+   # Get kernel version BEFORE installing modules
+    KERNEL_VERSION=$(make kernelrelease)
+    echo "Kernel version: $KERNEL_VERSION"
+
+    echo "Installing Morse modules to $MODULES_OUTPUT_DIR/$KERNEL_VERSION/kernel/net/wireless..."
+    cp $MORSE_DRIVER_DIR/morse.ko "$MODULES_OUTPUT_DIR/$KERNEL_VERSION/kernel/net/wireless/"
+    cp $MORSE_DRIVER_DIR/dot11ah/dot11ah.ko "$MODULES_OUTPUT_DIR/$KERNEL_VERSION/kernel/net/wireless/"
+    #make INSTALL_MOD_PATH="$OUTPUT_PATH" modules_install
+    # 6. depmod -a
+    #depmod -a -b "$OUTPUT_PATH"
 }
 
 # Function to build a kernel variant
@@ -373,6 +391,13 @@ if [ "$BUILD_PI5" = true ]; then
 fi
 echo "========================================"
 echo ""
+
+if [ "$BUILD_PI4" = true ]; then
+    echo "========================================"
+    echo "Building Morse Micro driver for Pi 4 kernel..."
+    echo "========================================"
+    build_morse_driver
+fi
 
 # Function to build a kernel package
 build_kernel_package() {
