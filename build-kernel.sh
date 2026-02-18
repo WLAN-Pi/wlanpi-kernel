@@ -422,6 +422,17 @@ fi
 echo "========================================"
 echo ""
 
+if [ "$BUILD_PI4" = true ]; then
+    echo "========================================"
+    echo "Building Morse Micro driver for Pi 4 kernel..."
+    echo "========================================"
+    build_morse_driver
+    echo ""
+    echo "========================================"
+    echo "Morse Micro driver build complete"
+    echo "========================================"
+fi
+
 # Function to build a kernel package
 build_kernel_package() {
     local PKG_NAME="$1"
