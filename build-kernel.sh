@@ -239,7 +239,7 @@ build_morse_driver() {
     git submodule update --init --recursive
     echo "Clone complete. Building Morse Micro driver for kernel version $LOCAL_KERNEL_VERSION from $KERNEL_SRC_DIR..."
     # Make
-    make -j"$NUM_CORES" ccflags-y+="-Wno-error=enum-int-mismatch" KERNEL_SRC="$KERNEL_SRC_DIR" CROSS_COMPILE="$CROSS_COMPILE" ARCH="$ARCH" CONFIG_WLAN_VENDOR_MORSE=m CONFIG_MORSE_USB=y CONFIG_MORSE_USER_ACCESS=y CONFIG_MORSE_COUNTRY="US" CONFIG_MORSE_VENDOR_COMMAND=y CONFIG_MORSE_MONITOR=y CONFIG_MORSE_DEBUG_MASK=2
+    make -j"$NUM_CORES" ccflags-y+=' -Wno-error=enum-int-mismatch -Wno-unknown-warning-option' KERNEL_SRC="$KERNEL_SRC_DIR" CROSS_COMPILE="$CROSS_COMPILE" ARCH="$ARCH" CONFIG_WLAN_VENDOR_MORSE=m CONFIG_MORSE_USB=y CONFIG_MORSE_USER_ACCESS=y CONFIG_MORSE_COUNTRY="US" CONFIG_MORSE_VENDOR_COMMAND=y CONFIG_MORSE_MONITOR=y CONFIG_MORSE_DEBUG_MASK=2
     # Install modules under lib/modules
     # Get kernel version BEFORE installing modules
     
@@ -421,17 +421,6 @@ if [ "$BUILD_PI5" = true ]; then
 fi
 echo "========================================"
 echo ""
-
-if [ "$BUILD_PI4" = true ]; then
-    echo "========================================"
-    echo "Building Morse Micro driver for Pi 4 kernel..."
-    echo "========================================"
-    build_morse_driver
-    echo ""
-    echo "========================================"
-    echo "Morse Micro driver build complete"
-    echo "========================================"
-fi
 
 # Function to build a kernel package
 build_kernel_package() {
