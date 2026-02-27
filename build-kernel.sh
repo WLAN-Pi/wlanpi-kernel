@@ -239,7 +239,7 @@ build_morse_driver() {
     git submodule update --init --recursive
     echo "Clone complete. Building Morse Micro driver for kernel version $LOCAL_KERNEL_VERSION from $KERNEL_SRC_DIR..."
     # Make
-    make -j"$NUM_CORES" KERNEL_SRC="$KERNEL_SRC_DIR" CROSS_COMPILE="$CROSS_COMPILE" ARCH="$ARCH" CONFIG_WLAN_VENDOR_MORSE=m CONFIG_MORSE_USB=y CONFIG_MORSE_USER_ACCESS=y CONFIG_MORSE_COUNTRY="US" CONFIG_MORSE_VENDOR_COMMAND=y CONFIG_MORSE_MONITOR=y CONFIG_MORSE_DEBUG_MASK=2
+    make -j"$NUM_CORES" KERNEL_SRC="$KERNEL_SRC_DIR" CROSS_COMPILE="$CROSS_COMPILE" ARCH="$ARCH" ccflags+=-Wno-error=enum-int-mismatch CONFIG_WLAN_VENDOR_MORSE=m CONFIG_MORSE_USB=y CONFIG_MORSE_USER_ACCESS=y CONFIG_MORSE_COUNTRY="US" CONFIG_MORSE_VENDOR_COMMAND=y CONFIG_MORSE_MONITOR=y CONFIG_MORSE_DEBUG_MASK=2
     # Install modules under lib/modules
     # Get kernel version BEFORE installing modules
     
