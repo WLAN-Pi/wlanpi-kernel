@@ -221,6 +221,7 @@ export CROSS_COMPILE="$CROSS_COMPILE"
 
 # Function to build the out of tree Morse Micro driver
 build_morse_driver() {
+    local LOCAL_KERNEL_VERSION="$1"
     # Set variables for repo / related things
     MORSE_DRIVER_REPO="https://github.com/MorseMicro/morse_driver.git"
     MORSE_DRIVER_DIR="$BASE_DIR/morse_driver"
@@ -230,21 +231,35 @@ build_morse_driver() {
         echo "Removing existing Morse Micro Driver directory..."
         rm -rf "$MORSE_DRIVER_DIR"
     fi
+    
      # Clone Morse Driver repo
     git clone --depth=1 --branch "$MORSE_DRIVER_TAG" "$MORSE_DRIVER_REPO" "$MORSE_DRIVER_DIR"
     cd "$MORSE_DRIVER_DIR"
     # Update submodules
     git submodule update --init --recursive
+    echo "Clone complete. Building Morse Micro driver for kernel version $LOCAL_KERNEL_VERSION from $KERNEL_SRC_DIR..."
     # Make
-    make -j"$NUM_CORES" CFLAGS="-Wno-error=enum-int-mismatch" KERNEL_SRC="$KERNEL_SRC_DIR" CROSS_COMPILE="$CROSS_COMPILE" ARCH="$ARCH" CONFIG_WLAN_VENDOR_MORSE=m CONFIG_MORSE_USB=y CONFIG_MORSE_USER_ACCESS=y CONFIG_MORSE_COUNTRY="US" CONFIG_MORSE_VENDOR_COMMAND=y CONFIG_MORSE_MONITOR=y CONFIG_MORSE_DEBUG_MASK=2
+    make -j"$NUM_CORES" \
+            KERNEL_SRC="$KERNEL_SRC_DIR" \
+            CROSS_COMPILE="$CROSS_COMPILE" \
+            ARCH="$ARCH" \
+            ccflags-y+=-Wno-error=enum-int-mismatch \
+            CONFIG_WLAN_VENDOR_MORSE=m \
+            CONFIG_MORSE_USB=y \
+            CONFIG_MORSE_USER_ACCESS=y \
+            CONFIG_MORSE_COUNTRY="US" \
+            CONFIG_MORSE_VENDOR_COMMAND=y \
+            CONFIG_MORSE_MONITOR=y \
+            CONFIG_MORSE_DEBUG_MASK=2
+
     # Install modules under lib/modules
     # Get kernel version BEFORE installing modules
-    KERNEL_VERSION=$BCM2711_VERSION
-    echo "Kernel version: $KERNEL_VERSION"
+    
+    echo "Kernel version: $LOCAL_KERNEL_VERSION"
 
-    echo "Installing Morse modules to $MODULES_OUTPUT_DIR/$KERNEL_VERSION/kernel/net/wireless..."
-    cp $MORSE_DRIVER_DIR/morse.ko "$MODULES_OUTPUT_DIR/$KERNEL_VERSION/kernel/net/wireless/"
-    cp $MORSE_DRIVER_DIR/dot11ah/dot11ah.ko "$MODULES_OUTPUT_DIR/$KERNEL_VERSION/kernel/net/wireless/"
+    echo "Installing Morse modules to $MODULES_OUTPUT_DIR/$LOCAL_KERNEL_VERSION/kernel/net/wireless..."
+    cp $MORSE_DRIVER_DIR/morse.ko "$MODULES_OUTPUT_DIR/$LOCAL_KERNEL_VERSION/kernel/net/wireless/"
+    cp $MORSE_DRIVER_DIR/dot11ah/dot11ah.ko "$MODULES_OUTPUT_DIR/$LOCAL_KERNEL_VERSION/kernel/net/wireless/"
     # depmod -a
     #depmod -a -b "$INSTALL_MOD_PATH"
 }
@@ -375,9 +390,31 @@ if [ "$BUILD_PI4" = true ]; then
     BCM2711_VERSION="$BUILT_KERNEL_VERSION"
 fi
 
+if [ "$BUILD_PI4" = true ]; then
+    echo "========================================"
+    echo "Building Morse Micro driver for Pi 4 kernel..."
+    echo "========================================"
+    build_morse_driver "$BCM2711_VERSION"
+    echo ""
+    echo "========================================"
+    echo "Morse Micro driver build complete"
+    echo "========================================"
+fi
+
 if [ "$BUILD_PI5" = true ]; then
     build_kernel_variant "bcm2712" "$BCM2712_BASE_CONFIG" "$BCM2712_CUSTOM_CONFIG" "$BCM2712_KERNEL_IMAGE"
     BCM2712_VERSION="$BUILT_KERNEL_VERSION"
+fi
+
+if [ "$BUILD_PI5" = true ]; then
+    echo "========================================"
+    echo "Building Morse Micro driver for Pi 5 kernel..."
+    echo "========================================"
+    build_morse_driver "$BCM2712_VERSION"
+    echo ""
+    echo "========================================"
+    echo "Morse Micro driver build complete"
+    echo "========================================"
 fi
 
 echo ""
@@ -387,22 +424,15 @@ echo "========================================"
 if [ "$BUILD_PI4" = true ]; then
     echo "Pi 4 kernel version:  $BCM2711_VERSION"
 fi
+echo ""
+echo ""
+
+
 if [ "$BUILD_PI5" = true ]; then
     echo "Pi 5 kernel version:  $BCM2712_VERSION"
 fi
 echo "========================================"
 echo ""
-
-if [ "$BUILD_PI4" = true ]; then
-    echo "========================================"
-    echo "Building Morse Micro driver for Pi 4 kernel..."
-    echo "========================================"
-    build_morse_driver
-    echo ""
-    echo "========================================"
-    echo "Morse Micro driver build complete"
-    echo "========================================"
-fi
 
 # Function to build a kernel package
 build_kernel_package() {
