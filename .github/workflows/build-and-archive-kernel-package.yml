@@ -49,13 +49,13 @@ jobs:
     steps:
       # Step 1: Checkout the repository
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       # Step 2: Restore APT cache
       - name: Restore APT cache
-        uses: actions/cache@v3
+        uses: actions/cache@v6
         with:
           path: cache-apt
           key: ${{ runner.os }}-apt-${{ hashFiles('**/build-kernel.sh') }}
@@ -78,7 +78,7 @@ jobs:
 
       # Step 5: Cache kernel build directory
       - name: Cache kernel build directory
-        uses: actions/cache@v3
+        uses: actions/cache@v6
         with:
           path: linux
           key: ${{ runner.os }}-kernel-${{ env.BUILD_TARGET }}-${{ hashFiles('**/build-kernel.sh') }}
@@ -141,7 +141,7 @@ jobs:
       # Step 10: Upload v8 kernel package
       - name: Upload v8 kernel package
         if: ${{ env.BUILD_TARGET == 'v8' || env.BUILD_TARGET == 'both' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: wlanpi-kernel-${{ env.DEBIAN_RELEASE }}-v8
           path: output/wlanpi-kernel-${{ env.DEBIAN_RELEASE }}-v8_*.deb
@@ -150,7 +150,7 @@ jobs:
       # Step 11: Upload v8 headers package
       - name: Upload v8 headers package
         if: ${{ env.BUILD_TARGET == 'v8' || env.BUILD_TARGET == 'both' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: wlanpi-kernel-headers-${{ env.DEBIAN_RELEASE }}-v8
           path: output/wlanpi-kernel-headers-${{ env.DEBIAN_RELEASE }}-v8_*.deb
@@ -159,7 +159,7 @@ jobs:
       # Step 12: Upload 2712 kernel package
       - name: Upload 2712 Kernel Package
         if: ${{ env.BUILD_TARGET == '2712' || env.BUILD_TARGET == 'both' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: wlanpi-kernel-${{ env.DEBIAN_RELEASE }}-2712
           path: output/wlanpi-kernel-${{ env.DEBIAN_RELEASE }}-2712_*.deb
@@ -168,7 +168,7 @@ jobs:
       # Step 13: Upload 2712 headers package
       - name: Upload 2712 headers package
         if: ${{ env.BUILD_TARGET == '2712' || env.BUILD_TARGET == 'both' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: wlanpi-kernel-headers-${{ env.DEBIAN_RELEASE }}-2712
           path: output/wlanpi-kernel-headers-${{ env.DEBIAN_RELEASE }}-2712_*.deb
@@ -177,7 +177,7 @@ jobs:
       # Step 14: Upload dual kernel package
       - name: Upload dual kernel package
         if: ${{ env.BUILD_TARGET == 'both' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: wlanpi-kernel-${{ env.DEBIAN_RELEASE }}-dual
           path: output/wlanpi-kernel-${{ env.DEBIAN_RELEASE }}_*.deb
