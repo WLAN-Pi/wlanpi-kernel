@@ -3,11 +3,12 @@ name: Build and archive WLAN Pi kernel package
 on:
   push:
     branches:
-      - 6.12-bookworm
+      - 7.1-trixie
     paths:
       - 'patches/**'
       - 'wlanpi_*_defconfig'
       - 'build-kernel*.sh'
+      - '.github/workflows/build-and-archive-kernel-package.yml'
   workflow_dispatch:
     inputs:
       build_target:
@@ -19,16 +20,29 @@ on:
           - both
           - v8
           - 2712
+      distro:
+        description: 'Target Debian release'
+        required: true
+        default: 'trixie'
+        type: choice
+        options:
+          - trixie
+          - bookworm
+      upload_to_packagecloud:
+        description: 'Upload built packages to packagecloud wlanpi/dev'
+        required: true
+        default: true
+        type: boolean
 
 jobs:
   build:
     runs-on: ubuntu-24.04-arm
 
+    environment: PACKAGECLOUD
+
     env:
-      DISTRO: bookworm
-      VERSION_CODENAME: bookworm
-      KERNEL_TARGET_DISTRO: Debian
-      KERNEL_TARGET_VERSION: bookworm
+      # DEBIAN_RELEASE drives package naming in build-kernel.sh
+      DEBIAN_RELEASE: ${{ github.event.inputs.distro || 'trixie' }}
       # Set BUILD_TARGET from workflow input, default to 'both' for push events
       BUILD_TARGET: ${{ github.event.inputs.build_target || 'both' }}
 
@@ -87,7 +101,7 @@ jobs:
               exit 1
             fi
           fi
-  
+
           if [[ "$BUILD_TARGET" == "2712" || "$BUILD_TARGET" == "both" ]]; then
             if [ -f wlanpi_2712_defconfig ]; then
               echo "✓ wlanpi_2712_defconfig found"
@@ -119,13 +133,18 @@ jobs:
           echo "Built packages:"
           find output -name '*.deb' -type f -exec basename {} \;
 
+          if [ -z "$(find output -maxdepth 1 -name '*.deb' -print -quit)" ]; then
+            echo "ERROR: no .deb packages were produced"
+            exit 1
+          fi
+
       # Step 10: Upload v8 kernel package
       - name: Upload v8 kernel package
         if: ${{ env.BUILD_TARGET == 'v8' || env.BUILD_TARGET == 'both' }}
         uses: actions/upload-artifact@v4
         with:
-          name: wlanpi-kernel-bookworm-v8
-          path: output/wlanpi-kernel-bookworm-v8_*.deb
+          name: wlanpi-kernel-${{ env.DEBIAN_RELEASE }}-v8
+          path: output/wlanpi-kernel-${{ env.DEBIAN_RELEASE }}-v8_*.deb
           if-no-files-found: warn
 
       # Step 11: Upload v8 headers package
@@ -133,8 +152,8 @@ jobs:
         if: ${{ env.BUILD_TARGET == 'v8' || env.BUILD_TARGET == 'both' }}
         uses: actions/upload-artifact@v4
         with:
-          name: wlanpi-kernel-headers-bookworm-v8
-          path: output/wlanpi-kernel-headers-bookworm-v8_*.deb
+          name: wlanpi-kernel-headers-${{ env.DEBIAN_RELEASE }}-v8
+          path: output/wlanpi-kernel-headers-${{ env.DEBIAN_RELEASE }}-v8_*.deb
           if-no-files-found: warn
 
       # Step 12: Upload 2712 kernel package
@@ -142,8 +161,8 @@ jobs:
         if: ${{ env.BUILD_TARGET == '2712' || env.BUILD_TARGET == 'both' }}
         uses: actions/upload-artifact@v4
         with:
-          name: wlanpi-kernel-bookworm-2712
-          path: output/wlanpi-kernel-bookworm-2712_*.deb
+          name: wlanpi-kernel-${{ env.DEBIAN_RELEASE }}-2712
+          path: output/wlanpi-kernel-${{ env.DEBIAN_RELEASE }}-2712_*.deb
           if-no-files-found: warn
 
       # Step 13: Upload 2712 headers package
@@ -151,8 +170,8 @@ jobs:
         if: ${{ env.BUILD_TARGET == '2712' || env.BUILD_TARGET == 'both' }}
         uses: actions/upload-artifact@v4
         with:
-          name: wlanpi-kernel-headers-bookworm-2712
-          path: output/wlanpi-kernel-headers-bookworm-2712_*.deb
+          name: wlanpi-kernel-headers-${{ env.DEBIAN_RELEASE }}-2712
+          path: output/wlanpi-kernel-headers-${{ env.DEBIAN_RELEASE }}-2712_*.deb
           if-no-files-found: warn
 
       # Step 14: Upload dual kernel package
@@ -160,9 +179,31 @@ jobs:
         if: ${{ env.BUILD_TARGET == 'both' }}
         uses: actions/upload-artifact@v4
         with:
-          name: wlanpi-kernel-bookworm-dual
-          path: output/wlanpi-kernel-bookworm_*.deb
+          name: wlanpi-kernel-${{ env.DEBIAN_RELEASE }}-dual
+          path: output/wlanpi-kernel-${{ env.DEBIAN_RELEASE }}_*.deb
           if-no-files-found: warn
+
+      # Step 15: Upload packages to packagecloud wlanpi/dev debian/DEBIAN_RELEASE.
+      # Uses the package_cloud CLI directly instead of an action so we can detect
+      # upload errors: the CLI exits 0 even when a push fails (Thor bug), which
+      # has produced green runs that uploaded nothing.
+      - name: Upload packages to packagecloud debian/${{ env.DEBIAN_RELEASE }}
+        if: ${{ (github.event_name == 'push' || github.event.inputs.upload_to_packagecloud == 'true') && (github.repository_owner == 'WLAN-Pi') }}
+        env:
+          PACKAGECLOUD_TOKEN: ${{ secrets.PACKAGECLOUD_TOKEN }}
+        run: |
+          sudo gem install package_cloud
+          status=0
+          for deb in output/*.deb; do
+            echo "Pushing ${deb} to wlanpi/dev/debian/${DEBIAN_RELEASE}"
+            out=$(package_cloud push "wlanpi/dev/debian/${DEBIAN_RELEASE}" "$deb" 2>&1) || status=1
+            echo "$out"
+            if ! echo "$out" | grep -q "success!"; then
+              echo "::error::Upload of ${deb} to debian/${DEBIAN_RELEASE} did not report success"
+              status=1
+            fi
+          done
+          exit $status
 
   slack-workflow-status:
     if: ${{ always() && (github.repository_owner == 'WLAN-Pi') && (! github.event.pull_request.head.repo.fork) }}

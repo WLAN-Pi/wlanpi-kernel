@@ -14,12 +14,12 @@
 #
 # Environment variables:
 #   BUILD_TARGET    - Same as TARGET argument (env overrides CLI arg)
-#   DEBIAN_RELEASE  - Target Debian release: bookworm (default), trixie
+#   DEBIAN_RELEASE  - Target Debian release: trixie (default), bookworm
 #   CI              - Set to 'true' to indicate CI environment
 #
 # Examples:
-#   ./build-kernel.sh              # Build both kernels for bookworm
-#   ./build-kernel.sh v8           # Build v8 only for bookworm
+#   ./build-kernel.sh              # Build both kernels for trixie
+#   ./build-kernel.sh v8           # Build v8 only for trixie
 #   BUILD_TARGET=2712 ./build-kernel.sh  # Build 2712 via env var
 #   DEBIAN_RELEASE=trixie ./build-kernel.sh  # Build for Trixie
 #   DEBIAN_RELEASE=trixie ./build-kernel.sh v8  # Build v8 for Trixie
@@ -27,7 +27,7 @@
 set -euo pipefail  # Enable strict error handling
 
 # Debian release selection (for local testing of different releases)
-DEBIAN_RELEASE="${DEBIAN_RELEASE:-bookworm}"
+DEBIAN_RELEASE="${DEBIAN_RELEASE:-trixie}"
 
 # Support both CLI args and environment variables (env takes precedence for CI)
 BUILD_TARGET="${BUILD_TARGET:-${1:-both}}"
@@ -55,7 +55,7 @@ case "$BUILD_TARGET" in
         echo ""
         echo "Environment variables:"
         echo "  BUILD_TARGET    - Override target selection (for CI)"
-        echo "  DEBIAN_RELEASE  - Target Debian release: bookworm (default), trixie"
+        echo "  DEBIAN_RELEASE  - Target Debian release: trixie (default), bookworm"
         echo ""
         echo "Examples:"
         echo "  DEBIAN_RELEASE=trixie ./build-kernel.sh v8"
@@ -121,7 +121,7 @@ echo ""
 
 # Configuration Variables
 KERNEL_REPO="https://github.com/raspberrypi/linux.git"
-KERNEL_BRANCH="rpi-6.19.y"
+KERNEL_BRANCH="rpi-7.1.y"
 KERNEL_SRC_DIR="$BASE_DIR/linux"
 OUTPUT_PATH="$BASE_DIR/output"
 CROSS_COMPILE="aarch64-linux-gnu-"
