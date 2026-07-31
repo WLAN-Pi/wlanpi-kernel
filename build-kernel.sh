@@ -2,7 +2,7 @@
 
 # Build script for cross-compiling and packaging Linux kernels for Raspberry Pi
 # Supports: Pi 4/CM4 (v8, 4KB pages) and Pi 5 (2712, 16KB pages)
-# Target: ARM64, Distribution: Debian Bookworm/Trixie
+# Target: ARM64, Distribution: Debian Trixie
 # Authors: Jerry Olla <jerryolla@gmail.com>, Josh Schmelzle <josh@joshschmelzle.com>
 #
 # Usage: ./build-kernel.sh [TARGET]
@@ -14,12 +14,12 @@
 #
 # Environment variables:
 #   BUILD_TARGET    - Same as TARGET argument (env overrides CLI arg)
-#   DEBIAN_RELEASE  - Target Debian release: bookworm (default), trixie
+#   DEBIAN_RELEASE  - Target Debian release: trixie (default)
 #   CI              - Set to 'true' to indicate CI environment
 #
 # Examples:
-#   ./build-kernel.sh              # Build both kernels for bookworm
-#   ./build-kernel.sh v8           # Build v8 only for bookworm
+#   ./build-kernel.sh              # Build both kernels for Trixie
+#   ./build-kernel.sh v8           # Build v8 only for Trixie
 #   BUILD_TARGET=2712 ./build-kernel.sh  # Build 2712 via env var
 #   DEBIAN_RELEASE=trixie ./build-kernel.sh  # Build for Trixie
 #   DEBIAN_RELEASE=trixie ./build-kernel.sh v8  # Build v8 for Trixie
@@ -27,7 +27,7 @@
 set -euo pipefail  # Enable strict error handling
 
 # Debian release selection (for local testing of different releases)
-DEBIAN_RELEASE="${DEBIAN_RELEASE:-bookworm}"
+DEBIAN_RELEASE="${DEBIAN_RELEASE:-trixie}"
 
 # Support both CLI args and environment variables (env takes precedence for CI)
 BUILD_TARGET="${BUILD_TARGET:-${1:-both}}"
@@ -55,7 +55,7 @@ case "$BUILD_TARGET" in
         echo ""
         echo "Environment variables:"
         echo "  BUILD_TARGET    - Override target selection (for CI)"
-        echo "  DEBIAN_RELEASE  - Target Debian release: bookworm (default), trixie"
+        echo "  DEBIAN_RELEASE  - Target Debian release: trixie (default)"
         echo ""
         echo "Examples:"
         echo "  DEBIAN_RELEASE=trixie ./build-kernel.sh v8"
@@ -66,12 +66,12 @@ esac
 
 # Validate DEBIAN_RELEASE
 case "$DEBIAN_RELEASE" in
-    bookworm|trixie)
+    trixie)
         echo "Building for Debian release: $DEBIAN_RELEASE"
         ;;
     *)
         echo "ERROR: Invalid DEBIAN_RELEASE '$DEBIAN_RELEASE'"
-        echo "Supported releases: bookworm, trixie"
+        echo "Supported releases: trixie"
         exit 1
         ;;
 esac

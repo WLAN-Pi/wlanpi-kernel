@@ -3,7 +3,7 @@ name: Build and archive WLAN Pi kernel package
 on:
   push:
     branches:
-      - 6.12-bookworm
+      - 6.12-trixie
     paths:
       - 'patches/**'
       - 'wlanpi_*_defconfig'
@@ -25,10 +25,10 @@ jobs:
     runs-on: ubuntu-24.04-arm
 
     env:
-      DISTRO: bookworm
-      VERSION_CODENAME: bookworm
+      DISTRO: trixie
+      VERSION_CODENAME: trixie
       KERNEL_TARGET_DISTRO: Debian
-      KERNEL_TARGET_VERSION: bookworm
+      KERNEL_TARGET_VERSION: trixie
       # Set BUILD_TARGET from workflow input, default to 'both' for push events
       BUILD_TARGET: ${{ github.event.inputs.build_target || 'both' }}
 
@@ -124,8 +124,8 @@ jobs:
         if: ${{ env.BUILD_TARGET == 'v8' || env.BUILD_TARGET == 'both' }}
         uses: actions/upload-artifact@v7
         with:
-          name: wlanpi-kernel-bookworm-v8
-          path: output/wlanpi-kernel-bookworm-v8_*.deb
+          name: wlanpi-kernel-trixie-v8
+          path: output/wlanpi-kernel-trixie-v8_*.deb
           if-no-files-found: warn
 
       # Step 11: Upload v8 headers package
@@ -133,8 +133,8 @@ jobs:
         if: ${{ env.BUILD_TARGET == 'v8' || env.BUILD_TARGET == 'both' }}
         uses: actions/upload-artifact@v7
         with:
-          name: wlanpi-kernel-headers-bookworm-v8
-          path: output/wlanpi-kernel-headers-bookworm-v8_*.deb
+          name: wlanpi-kernel-headers-trixie-v8
+          path: output/wlanpi-kernel-headers-trixie-v8_*.deb
           if-no-files-found: warn
 
       # Step 12: Upload 2712 kernel package
@@ -142,8 +142,8 @@ jobs:
         if: ${{ env.BUILD_TARGET == '2712' || env.BUILD_TARGET == 'both' }}
         uses: actions/upload-artifact@v7
         with:
-          name: wlanpi-kernel-bookworm-2712
-          path: output/wlanpi-kernel-bookworm-2712_*.deb
+          name: wlanpi-kernel-trixie-2712
+          path: output/wlanpi-kernel-trixie-2712_*.deb
           if-no-files-found: warn
 
       # Step 13: Upload 2712 headers package
@@ -151,8 +151,8 @@ jobs:
         if: ${{ env.BUILD_TARGET == '2712' || env.BUILD_TARGET == 'both' }}
         uses: actions/upload-artifact@v7
         with:
-          name: wlanpi-kernel-headers-bookworm-2712
-          path: output/wlanpi-kernel-headers-bookworm-2712_*.deb
+          name: wlanpi-kernel-headers-trixie-2712
+          path: output/wlanpi-kernel-headers-trixie-2712_*.deb
           if-no-files-found: warn
 
       # Step 14: Upload dual kernel package
@@ -160,8 +160,8 @@ jobs:
         if: ${{ env.BUILD_TARGET == 'both' }}
         uses: actions/upload-artifact@v7
         with:
-          name: wlanpi-kernel-bookworm-dual
-          path: output/wlanpi-kernel-bookworm_*.deb
+          name: wlanpi-kernel-trixie-dual
+          path: output/wlanpi-kernel-trixie_*.deb
           if-no-files-found: warn
 
   slack-workflow-status:

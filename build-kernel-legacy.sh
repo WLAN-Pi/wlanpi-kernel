@@ -2,7 +2,7 @@
 
 # Build script for cross-compiling the Linux kernel for Raspberry Pi CM4/RPI4
 # and packaging it into a Debian package
-# Target: ARM64, Distribution: Debian Bookworm
+# Target: ARM64, Distribution: Debian Trixie
 # Author: Jerry Olla <jerryolla@gmail.com>
 
 set -euo pipefail  # Enable strict error handling
@@ -65,8 +65,8 @@ MODULES_OUTPUT_DIR="$OUTPUT_PATH/lib/modules"
 HEADERS_OUTPUT_DIR="$OUTPUT_PATH/linux-headers"
 
 # Debian Package Metadata
-PACKAGE_NAME="wlanpi-kernel-bookworm"
-HEADERS_PACKAGE_NAME="wlanpi-kernel-headers-bookworm"
+PACKAGE_NAME="wlanpi-kernel-trixie"
+HEADERS_PACKAGE_NAME="wlanpi-kernel-headers-trixie"
 
 # Trap for error handling and timing
 term() {
@@ -252,9 +252,9 @@ Maintainer: Jerry Olla <jerryolla@gmail.com>
 Conflicts: wlanpi-kernel
 Replaces: wlanpi-kernel
 Depends: libc6 (>= 2.29)
-Description: Custom Linux kernel for Raspberry Pi CM4/RPI4 with WLAN Pi v8 configuration for Debian Bookworm
+Description: Custom Linux kernel for Raspberry Pi CM4/RPI4 with WLAN Pi v8 configuration for Debian Trixie
  This package contains a custom-built Linux kernel image, Device Tree Blobs (DTBs),
- and kernel modules tailored for the WLAN Pi v8 configuration on Raspberry Pi CM4/RPI4 running Debian Bookworm.
+ and kernel modules tailored for the WLAN Pi v8 configuration on Raspberry Pi CM4/RPI4 running Debian Trixie.
 EOF
 
 # Create DEBIAN/postinst script
