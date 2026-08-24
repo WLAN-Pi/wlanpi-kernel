@@ -1,0 +1,50 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Jake Snyder <jsnyder81@gmail.com>
+Date: Mon, 6 Jul 2026 02:11:36 +0000
+Subject: [PATCH 7/7] wifi: ath12k: fix dp_link_peer dangling references on AP
+ vdev rollback
+
+Backport of upstream ath-next patch adapted for rpi-7.1.y context
+(https://patchwork.kernel.org/project/linux-wireless/patch/20260629-ath12k-mlo-peer-delete-race-v2-1-362b25590d19@oss.qualcomm.com/).
+Required together with the MLO peer delete race fix, which removes
+ar->peer_delete_done and changes ath12k_wait_for_peer_delete_done().
+---
+ drivers/net/wireless/ath/ath12k/mac.c | 18 ++----------------
+ 1 file changed, 2 insertions(+), 16 deletions(-)
+diff --git a/drivers/net/wireless/ath/ath12k/mac.c b/drivers/net/wireless/ath/ath12k/mac.c
+index d13fb31d1..93f558b37 100644
+--- a/drivers/net/wireless/ath/ath12k/mac.c
++++ b/drivers/net/wireless/ath/ath12k/mac.c
+@@ -10441,28 +10441,14 @@ int ath12k_mac_vdev_create(struct ath12k *ar, struct ath12k_link_vif *arvif)
+ 	ath12k_dp_vdev_tx_attach(ar, arvif);
+ 
+ 	return ret;
+ 
+ err_peer_del:
+ 	if (ahvif->vdev_type == WMI_VDEV_TYPE_AP) {
+-		reinit_completion(&ar->peer_delete_done);
+-
+-		ret = ath12k_wmi_send_peer_delete_cmd(ar, arvif->bssid,
+-						      arvif->vdev_id);
+-		if (ret) {
+-			ath12k_warn(ar->ab, "failed to delete peer vdev_id %d addr %pM\n",
+-				    arvif->vdev_id, arvif->bssid);
+-			goto err_dp_peer_del;
+-		}
+-
+-		ret = ath12k_wait_for_peer_delete_done(ar, arvif->vdev_id,
+-						       arvif->bssid);
+-		if (ret)
+-			goto err_dp_peer_del;
+-
+-		ar->num_peers--;
++		/* ignore return value: propagate the original error */
++		ath12k_peer_delete(ar, arvif->vdev_id, arvif->bssid);
+ 	}
+ 
+ err_dp_peer_del:
+ 	if (dp_peer_created)
+ 		ath12k_dp_peer_delete(&ah->dp_hw, arvif->bssid, NULL);
+ 
+-- 
+2.51.0
