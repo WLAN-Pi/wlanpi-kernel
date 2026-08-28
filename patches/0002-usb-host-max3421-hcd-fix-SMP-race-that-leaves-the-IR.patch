@@ -1,0 +1,147 @@
+From d620b6d96be120677cb4072dc253368ca8e96ebd Mon Sep 17 00:00:00 2001
+From: Rob Kleffner <rob@oscium.com>
+Date: Wed, 22 Jul 2026 19:35:39 -0600
+Subject: [PATCH] usb: host: max3421-hcd: fix SMP race that leaves the IRQ
+ disabled forever
+
+The hard interrupt handler and the SPI thread hand ownership of the
+interrupt line back and forth through the ENABLE_IRQ bit in
+max3421_hcd->todo.  The handler does
+
+	if (!test_and_set_bit(ENABLE_IRQ, &max3421_hcd->todo))
+		disable_irq_nosync(spi->irq);
+
+and the SPI thread's idle path does
+
+	if (test_and_clear_bit(ENABLE_IRQ, &max3421_hcd->todo))
+		enable_irq(spi->irq);
+
+Each bit operation is atomic, but nothing makes the {bit operation,
+IRQ-depth operation} pair atomic on either side.  On an SMP system the
+thread's test_and_clear_bit() can land between the handler's
+test_and_set_bit() and its disable_irq_nosync().  The thread then calls
+enable_irq() while the line is still enabled:
+
+	WARNING: CPU: 1 PID: 245 at kernel/irq/manage.c:790 __enable_irq+0x54/0x90
+	Unbalanced enable for IRQ 37
+	Call trace:
+	 __enable_irq+0x54/0x90
+	 enable_irq+0x58/0xb8
+	 max3421_spi_thread+0x850/0xbd0
+
+and the handler's disable_irq_nosync() lands afterwards, leaving the
+line masked at depth 1 with ENABLE_IRQ clear.  From then on the thread's
+idle path never sees the bit set, so nothing ever re-enables the IRQ:
+the chip's interrupt is dead, in-flight transfers never complete, and
+the attached device eventually drops off the bus after a storm of
+-ETIMEDOUT resets.  Only unbinding and rebinding the driver (or a
+reboot) recovers.
+
+Observed in the field on a quad-core Raspberry Pi CM4 driving a
+full-speed spectrum analyzer: the chip's ~1 kHz FRAME interrupt cadence
+exercises the race window about a thousand times per second, and
+continuous bulk-IN streaming kills the bus within minutes to hours.
+
+Serialize both pairs with a dedicated spinlock.  The handler runs in
+hard-IRQ context with local interrupts off, so a plain spin_lock() is
+sufficient there; the thread side takes the lock with
+spin_lock_irqsave() so the handler cannot preempt it on the same CPU
+inside the critical section and spin on the lock forever.  The lock is
+initialized in probe before the SPI thread starts, because the thread's
+idle path takes it from its very first iteration.
+
+Also move the handler's wake_up_process() after the locked section.  A
+wakeup issued before ENABLE_IRQ is published can be spent on the thread
+passing its idle check while the bit is still clear and then going to
+sleep; the freshly-set bit is then not noticed until some unrelated
+wakeup (a URB submission or hub activity) happens along, stalling the
+stream in the meantime.
+
+Fixes: 2d53139f3162 ("Add support for using a MAX3421E chip as a host driver.")
+Cc: stable@vger.kernel.org
+---
+ drivers/usb/host/max3421-hcd.c | 39 ++++++++++++++++++++++++++++++++--
+ 1 file changed, 37 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/usb/host/max3421-hcd.c b/drivers/usb/host/max3421-hcd.c
+index 52b0fcc..3d3333d 100644
+--- a/drivers/usb/host/max3421-hcd.c
++++ b/drivers/usb/host/max3421-hcd.c
+@@ -123,6 +123,17 @@ struct max3421_dma_buf {
+ struct max3421_hcd {
+ 	spinlock_t lock;
+ 
++	/*
++	 * Serializes the {ENABLE_IRQ bit, interrupt-line disable/enable}
++	 * pairs in max3421_irq_handler() and the SPI thread's idle path.
++	 * With the atomic bit alone the thread's test_and_clear_bit() can
++	 * slip between the handler's test_and_set_bit() and its
++	 * disable_irq_nosync(); the thread then enables an already-enabled
++	 * line ("Unbalanced enable for IRQ") and the handler's disable is
++	 * never paired again, leaving the interrupt masked for good.
++	 */
++	spinlock_t irq_lock;
++
+ 	struct task_struct *spi_thread;
+ 
+ 	enum max3421_rh_state rh_state;
+@@ -1145,10 +1156,19 @@ max3421_irq_handler(int irq, void *dev_id)
+ 	struct spi_device *spi = to_spi_device(hcd->self.controller);
+ 	struct max3421_hcd *max3421_hcd = hcd_to_max3421(hcd);
+ 
+-	if (max3421_hcd->spi_thread)
+-		wake_up_process(max3421_hcd->spi_thread);
++	/* In hard-IRQ context local interrupts are off: plain spin_lock. */
++	spin_lock(&max3421_hcd->irq_lock);
+ 	if (!test_and_set_bit(ENABLE_IRQ, &max3421_hcd->todo))
+ 		disable_irq_nosync(spi->irq);
++	spin_unlock(&max3421_hcd->irq_lock);
++	/*
++	 * Wake the thread only after ENABLE_IRQ is published: a wakeup
++	 * issued before the bit is set can be spent on the thread passing
++	 * its idle check (bit still clear) and going to sleep, and this
++	 * interrupt then sits unnoticed until an unrelated wakeup arrives.
++	 */
++	if (max3421_hcd->spi_thread)
++		wake_up_process(max3421_hcd->spi_thread);
+ 	return IRQ_HANDLED;
+ }
+ 
+@@ -1383,6 +1403,7 @@ max3421_spi_thread(void *dev_id)
+ 	struct spi_device *spi = to_spi_device(hcd->self.controller);
+ 	struct max3421_hcd *max3421_hcd = hcd_to_max3421(hcd);
+ 	int i, i_worked = 1;
++	unsigned long flags;
+ 
+ 	/* set full-duplex SPI mode, low-active interrupt pin: */
+ 	spi_wr8(hcd, MAX3421_REG_PINCTL,
+@@ -1410,8 +1431,15 @@ max3421_spi_thread(void *dev_id)
+ 			spi_wr8(hcd, MAX3421_REG_HIEN, max3421_hcd->hien);
+ 
+ 			set_current_state(TASK_INTERRUPTIBLE);
++			/*
++			 * _irqsave: if the MAX3421 interrupt fired on this
++			 * CPU inside the critical section, its handler
++			 * would spin on irq_lock forever.
++			 */
++			spin_lock_irqsave(&max3421_hcd->irq_lock, flags);
+ 			if (test_and_clear_bit(ENABLE_IRQ, &max3421_hcd->todo))
+ 				enable_irq(spi->irq);
++			spin_unlock_irqrestore(&max3421_hcd->irq_lock, flags);
+ 			schedule();
+ 			__set_current_state(TASK_RUNNING);
+ 		}
+@@ -1894,6 +1922,13 @@ max3421_probe(struct spi_device *spi)
+ 	INIT_LIST_HEAD(&max3421_hcd->ep_list);
+ 	spi_set_drvdata(spi, max3421_hcd);
+ 
++	/*
++	 * Initialize before kthread_run() and request_irq(): the SPI
++	 * thread's idle path takes irq_lock from its first iteration
++	 * (max3421_start() would be too late).
++	 */
++	spin_lock_init(&max3421_hcd->irq_lock);
++
+ 	max3421_hcd->tx = kmalloc_obj(*max3421_hcd->tx);
+ 	if (!max3421_hcd->tx)
+ 		goto error;
