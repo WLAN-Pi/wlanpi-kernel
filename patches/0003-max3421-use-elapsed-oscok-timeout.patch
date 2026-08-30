@@ -1,0 +1,35 @@
+diff --git a/drivers/usb/host/max3421-hcd.c b/drivers/usb/host/max3421-hcd.c
+--- a/drivers/usb/host/max3421-hcd.c
++++ b/drivers/usb/host/max3421-hcd.c
+@@ -57,6 +57,7 @@
+  */
+ 
+ #include <linux/jiffies.h>
++#include <linux/ktime.h>
+ #include <linux/module.h>
+ #include <linux/spi/spi.h>
+ #include <linux/usb.h>
+@@ -1284,13 +1285,13 @@ max3421_reset_hcd(struct usb_hcd *hcd)
+ {
+ 	struct spi_device *spi = to_spi_device(hcd->self.controller);
+ 	struct max3421_hcd *max3421_hcd = hcd_to_max3421(hcd);
+-	int timeout;
++	ktime_t deadline;
+ 
+ 	/* perform a chip reset and wait for OSCIRQ signal to appear: */
+ 	spi_wr8(hcd, MAX3421_REG_USBCTL, BIT(MAX3421_USBCTL_CHIPRES_BIT));
+ 	/* clear reset: */
+ 	spi_wr8(hcd, MAX3421_REG_USBCTL, 0);
+-	timeout = 1000;
++	deadline = ktime_add_ms(ktime_get(), 20);
+ 	while (1) {
+ 		if (spi_rd8(hcd, MAX3421_REG_USBIRQ)
+ 		    & BIT(MAX3421_USBIRQ_OSCOKIRQ_BIT))
+@@ -1299,5 +1300,5 @@ max3421_reset_hcd(struct usb_hcd *hcd)
+ 			break;
+-		if (--timeout < 0) {
++		if (ktime_after(ktime_get(), deadline)) {
+ 			dev_err(&spi->dev,
+ 				"timed out waiting for oscillator OK signal");
+ 			return 1;
+
