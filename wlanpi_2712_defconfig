@@ -100,6 +100,15 @@ CONFIG_MHI_BUS=m
 
 
 #
+# Wireless stack debugfs
+# MAC80211_DEBUGFS depends on CFG80211_DEBUGFS, both off in the rpi defconfig.
+# Exposes per-station rate/stats and internal mac80211 state under
+# /sys/kernel/debug/ieee80211/ for WLAN Pi troubleshooting.
+#
+CONFIG_CFG80211_DEBUGFS=y
+CONFIG_MAC80211_DEBUGFS=y
+
+#
 # Wireless LAN drivers
 #
 #
@@ -152,6 +161,7 @@ CONFIG_ATH11K_PCI=m
 CONFIG_ATH12K=m
 CONFIG_ATH12K_DEBUG=y
 CONFIG_ATH12K_TRACING=y
+CONFIG_ATH12K_COREDUMP=y
 #
 # Intel devices
 #

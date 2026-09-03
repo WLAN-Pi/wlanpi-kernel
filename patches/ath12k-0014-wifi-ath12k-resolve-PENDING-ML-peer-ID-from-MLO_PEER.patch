@@ -1,0 +1,234 @@
+From 469d7e6077c1665754eaf330e1feabdca7b060ae Mon Sep 17 00:00:00 2001
+From: Baochen Qiang <baochen.qiang@oss.qualcomm.com>
+Date: Mon, 20 Jul 2026 14:43:29 +0800
+Subject: wifi: ath12k: resolve PENDING ML peer ID from MLO_PEER_MAP HTT event
+
+Add ath12k_dp_peer_fixup_peer_id() and call it from the
+HTT_T2H_MSG_TYPE_MLO_RX_PEER_MAP handler. For devices where the
+firmware allocates the MLD peer ID, this is the point at which
+all data structures that were left with ATH12K_MLO_PEER_ID_PENDING
+or ATH12K_MLO_PEER_ID_INVALID get their real ID:
+
+  - dp_peer->peer_id is updated and the dp_peer is published into
+    dp_hw->dp_peers[];
+  - every existing dp_link_peer in dp_peer->link_peers[] gets its
+    ml_id set to the same value;
+  - ahsta->ml_peer_id is updated to the same value so peer_assoc,
+    sta_state and cleanup paths see a consistent ID.
+
+Devices with host_alloc_ml_id == true also receive the same HTT
+event, but the firmware-reported ID always matches the
+host-allocated one and everything has already been populated by
+ath12k_dp_peer_create(); Skips the helper entirely on those devices.
+
+Tested-on: WCN7850 hw2.0 PCI WLAN.HMT.1.1.c5-00302-QCAHMTSWPL_V1.0_V2.0_SILICONZ-1.115823.3
+
+Closes: https://bugzilla.kernel.org/show_bug.cgi?id=221039
+Signed-off-by: Baochen Qiang <baochen.qiang@oss.qualcomm.com>
+Reviewed-by: Rameshkumar Sundaram <rameshkumar.sundaram@oss.qualcomm.com>
+Link: https://patch.msgid.link/20260720-ath12k-fw-allocated-ml-peer-id-v2-8-630632758a80@oss.qualcomm.com
+Signed-off-by: Jeff Johnson <jeff.johnson@oss.qualcomm.com>
+---
+ drivers/net/wireless/ath/ath12k/core.c    |  2 ++
+ drivers/net/wireless/ath/ath12k/core.h    |  1 +
+ drivers/net/wireless/ath/ath12k/dp_htt.c  | 19 +++++++++++
+ drivers/net/wireless/ath/ath12k/dp_peer.c | 52 +++++++++++++++++++++++++++++++
+ drivers/net/wireless/ath/ath12k/dp_peer.h |  2 ++
+ drivers/net/wireless/ath/ath12k/mac.c     | 24 ++++++++++++++
+ 6 files changed, 100 insertions(+)
+
+diff --git a/drivers/net/wireless/ath/ath12k/core.c b/drivers/net/wireless/ath/ath12k/core.c
+index 742d4fd1b598c..e87165e4f4b33 100644
+--- a/drivers/net/wireless/ath/ath12k/core.c
++++ b/drivers/net/wireless/ath/ath12k/core.c
+@@ -1544,6 +1544,8 @@ static void ath12k_core_pre_reconfigure_recovery(struct ath12k_base *ab)
+ 		}
+ 
+ 		wiphy_unlock(ah->hw->wiphy);
++
++		complete(&ah->peer_ml_id_done);
+ 	}
+ 
+ 	wake_up(&ab->wmi_ab.tx_credits_wq);
+diff --git a/drivers/net/wireless/ath/ath12k/core.h b/drivers/net/wireless/ath/ath12k/core.h
+index 8769b41f5db5d..30726e580833e 100644
+--- a/drivers/net/wireless/ath/ath12k/core.h
++++ b/drivers/net/wireless/ath/ath12k/core.h
+@@ -795,6 +795,7 @@ struct ath12k_hw {
+ 	bool regd_updated;
+ 	bool use_6ghz_regd;
+ 	bool host_alloc_ml_id;
++	struct completion peer_ml_id_done;
+ 
+ 	u8 num_radio;
+ 
+diff --git a/drivers/net/wireless/ath/ath12k/dp_htt.c b/drivers/net/wireless/ath/ath12k/dp_htt.c
+index 150b190f9c7fc..68968f96b4f1b 100644
+--- a/drivers/net/wireless/ath/ath12k/dp_htt.c
++++ b/drivers/net/wireless/ath/ath12k/dp_htt.c
+@@ -6,6 +6,7 @@
+ 
+ #include "core.h"
+ #include "peer.h"
++#include "dp_peer.h"
+ #include "htc.h"
+ #include "dp_htt.h"
+ #include "debugfs_htt_stats.h"
+@@ -582,6 +583,7 @@ static void ath12k_dp_htt_mlo_peer_map_handler(struct ath12k_base *ab,
+ 	struct htt_t2h_mlo_peer_map_event *ev = &resp->mlo_peer_map_ev;
+ 	u16 raw_peer_id, peer_id, addr_h16;
+ 	u8 peer_addr[ETH_ALEN];
++	int ret;
+ 
+ 	if (skb->len < sizeof(*ev)) {
+ 		ath12k_warn(ab, "unexpected htt mlo peer map event len %u\n",
+@@ -600,6 +602,23 @@ static void ath12k_dp_htt_mlo_peer_map_handler(struct ath12k_base *ab,
+ 
+ 	ath12k_dbg(ab, ATH12K_DBG_DP_HTT, "htt mlo peer map peer %pM id %u\n",
+ 		   peer_addr, peer_id);
++
++	/*
++	 * Fix up the dp_peer entry created with ATH12K_MLO_PEER_ID_PENDING
++	 * earlier; on chips with host_alloc_ml_id == false this is the only
++	 * point at which the host learns the firmware-assigned ID. Chips
++	 * that allocate the ID on the host also receive this event but the
++	 * firmware-reported ID matches the host-allocated one, so there is
++	 * nothing to fix up.
++	 */
++	if (!ab->hw_params->host_alloc_ml_id) {
++		ret = ath12k_dp_peer_fixup_peer_id(ab, peer_addr,
++						   peer_id);
++		if (ret)
++			ath12k_warn(ab,
++				    "failed to fix up peer id %u for dp peer %pM: %d\n",
++				    peer_id, peer_addr, ret);
++	}
+ }
+ 
+ void ath12k_dp_htt_htc_t2h_msg_handler(struct ath12k_base *ab,
+diff --git a/drivers/net/wireless/ath/ath12k/dp_peer.c b/drivers/net/wireless/ath/ath12k/dp_peer.c
+index cd6a0eb207bd8..bb5341b4251a1 100644
+--- a/drivers/net/wireless/ath/ath12k/dp_peer.c
++++ b/drivers/net/wireless/ath/ath12k/dp_peer.c
+@@ -702,3 +702,55 @@ void ath12k_dp_link_peer_reset_rx_stats(struct ath12k_dp *dp, const u8 *addr)
+ 	if (rx_stats)
+ 		memset(rx_stats, 0, sizeof(*rx_stats));
+ }
++
++int ath12k_dp_peer_fixup_peer_id(struct ath12k_base *ab,
++				 const u8 *peer_addr, u16 peer_id)
++{
++	struct ath12k_dp_link_peer *link_peer;
++	struct ath12k_dp_peer *dp_peer = NULL;
++	struct ath12k_hw_group *ag = ab->ag;
++	struct ath12k_dp_hw *dp_hw = NULL;
++	struct ath12k_hw *ah;
++	int i;
++
++	if (peer_id >= (ATH12K_PEER_ML_ID_VALID | ATH12K_MAX_MLO_PEERS))
++		return -EINVAL;
++
++	for (i = 0; i < ag->num_hw; i++) {
++		ah = ag->ah[i];
++		if (!ah)
++			continue;
++
++		spin_lock_bh(&ah->dp_hw.peer_lock);
++		dp_peer = ath12k_dp_peer_find_by_addr(&ah->dp_hw,
++						      (u8 *)peer_addr);
++		if (dp_peer) {
++			dp_hw = &ah->dp_hw;
++			break;
++		}
++		spin_unlock_bh(&ah->dp_hw.peer_lock);
++	}
++
++	if (!dp_peer)
++		return -ENOENT;
++
++	/* dp_hw->peer_lock is held */
++
++	dp_peer->peer_id = peer_id;
++	rcu_assign_pointer(dp_hw->dp_peers[peer_id], dp_peer);
++
++	for (i = 0; i < ATH12K_NUM_MAX_LINKS; i++) {
++		link_peer = rcu_dereference_protected(dp_peer->link_peers[i],
++						      lockdep_is_held(&dp_hw->peer_lock));
++		if (link_peer)
++			link_peer->ml_id = peer_id;
++	}
++
++	ath12k_sta_to_ahsta(dp_peer->sta)->ml_peer_id = peer_id;
++
++	spin_unlock_bh(&dp_hw->peer_lock);
++
++	complete(&ah->peer_ml_id_done);
++
++	return 0;
++}
+diff --git a/drivers/net/wireless/ath/ath12k/dp_peer.h b/drivers/net/wireless/ath/ath12k/dp_peer.h
+index 7c9709bf717b4..3503840b03295 100644
+--- a/drivers/net/wireless/ath/ath12k/dp_peer.h
++++ b/drivers/net/wireless/ath/ath12k/dp_peer.h
+@@ -181,4 +181,6 @@ struct ath12k_dp_peer *ath12k_dp_peer_find_by_peerid(struct ath12k_pdev_dp *dp_p
+ struct ath12k_dp_link_peer *
+ ath12k_dp_link_peer_find_by_peerid(struct ath12k_pdev_dp *dp_pdev, u16 peer_id);
+ void ath12k_dp_link_peer_free(struct ath12k_dp_link_peer *peer);
++int ath12k_dp_peer_fixup_peer_id(struct ath12k_base *ab, const u8 *peer_addr,
++				 u16 peer_id);
+ #endif
+diff --git a/drivers/net/wireless/ath/ath12k/mac.c b/drivers/net/wireless/ath/ath12k/mac.c
+index 760afe1c7f7a8..a0928890671ac 100644
+--- a/drivers/net/wireless/ath/ath12k/mac.c
++++ b/drivers/net/wireless/ath/ath12k/mac.c
+@@ -3859,9 +3859,11 @@ static u32 ath12k_mac_ieee80211_sta_bw_to_wmi(struct ath12k *ar,
+ static int ath12k_mac_peer_assoc(struct ath12k *ar,
+ 				 struct ath12k_wmi_peer_assoc_arg *peer_arg)
+ {
++	struct ath12k_hw *ah = ath12k_ar_to_ah(ar);
+ 	int ret;
+ 
+ 	reinit_completion(&ar->peer_assoc_done);
++	reinit_completion(&ah->peer_ml_id_done);
+ 
+ 	ret = ath12k_wmi_send_peer_assoc_cmd(ar, peer_arg);
+ 	if (ret) {
+@@ -3876,6 +3878,27 @@ static int ath12k_mac_peer_assoc(struct ath12k *ar,
+ 		return -ETIMEDOUT;
+ 	}
+ 
++	/*
++	 * For devices where the firmware allocates the MLD peer ID, the host
++	 * learns the real ID only from the MLO_RX_PEER_MAP HTT event, which is
++	 * handled in a softirq (BH workqueue) context that cannot take the
++	 * wiphy lock. Block here, while still holding the wiphy lock, until
++	 * that event has fixed up the ID. This serialises the fixup against
++	 * all other wiphy-locked ml_peer_id accesses.
++	 *
++	 * The firmware sends the event only once, in response to the assoc-link
++	 * peer assoc, so block only for that link.
++	 */
++	if (!ah->host_alloc_ml_id &&
++	    peer_arg->is_assoc &&
++	    peer_arg->ml.enabled &&
++	    peer_arg->ml.assoc_link &&
++	    !wait_for_completion_timeout(&ah->peer_ml_id_done, 1 * HZ)) {
++		ath12k_warn(ar->ab, "failed to get MLO peer map event for %pM vdev %i\n",
++			    peer_arg->peer_mac, peer_arg->vdev_id);
++		return -ETIMEDOUT;
++	}
++
+ 	return 0;
+ }
+ 
+@@ -15335,6 +15358,7 @@ static struct ath12k_hw *ath12k_mac_hw_allocate(struct ath12k_hw_group *ag,
+ 	ah->num_radio = num_pdev_map;
+ 
+ 	mutex_init(&ah->hw_mutex);
++	init_completion(&ah->peer_ml_id_done);
+ 
+ 	spin_lock_init(&ah->dp_hw.peer_lock);
+ 	INIT_LIST_HEAD(&ah->dp_hw.dp_peers_list);
+-- 
+cgit 1.3-korg
+
