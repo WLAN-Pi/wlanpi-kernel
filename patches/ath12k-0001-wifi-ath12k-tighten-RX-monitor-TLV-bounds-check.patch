@@ -1,0 +1,48 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Miaoqing Pan <miaoqing.pan@oss.qualcomm.com>
+Date: Sat, 9 May 2026 10:58:19 +0800
+Subject: wifi: ath12k: tighten RX monitor TLV bounds check
+
+Validate the pointer to the next RX monitor TLV more strictly by
+ensuring that at least a full TLV header is available within the
+status buffer before continuing TLV parsing.
+
+Prevent potential out-of-bounds access when handling malformed
+or truncated RX monitor status data.
+
+Tested-on: QCC2072 hw1.0 PCI WLAN.COL.1.0.c2-00068-QCACOLSWPL_V1_TO_SILICONZ-1
+Tested-on: WCN7850 hw2.0 PCI WLAN.HMT.1.1.c5-00302-QCAHMTSWPL_V1.0_V2.0_SILICONZ-1.115823.3
+
+Signed-off-by: Miaoqing Pan <miaoqing.pan@oss.qualcomm.com>
+Reviewed-by: Vasanthakumar Thiagarajan <vasanthakumar.thiagarajan@oss.qualcomm.com>
+Reviewed-by: Baochen Qiang <baochen.qiang@oss.qualcomm.com>
+Link: https://patch.msgid.link/20260509025819.1641630-6-miaoqing.pan@oss.qualcomm.com
+Signed-off-by: Jeff Johnson <jeff.johnson@oss.qualcomm.com>
+(cherry picked from commit fffa54aeaeb2e9ac923254b39e89bf07799615aa)
+
+WLAN Pi note: adapted for rpi-7.1.y. Upstream applies on top of the
+32-bit TLV header series (e264a3dbe866, 9d1d61121b05, 4c09bbf0c1e1,
+d762bbc08ca7), which renames the cursor to "tlv" and introduces the
+per-device tlv_hdr_len. rpi-7.1.y predates that series and only has
+the 64-bit TLV path, so the same check is expressed with the local
+cursor "ptr" and sizeof(*tlv), which is the 8-byte hal_tlv_64_hdr
+header this loop walks. The bounds semantics are identical.
+---
+ drivers/net/wireless/ath/ath12k/wifi7/dp_mon.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/wireless/ath/ath12k/wifi7/dp_mon.c b/drivers/net/wireless/ath/ath12k/wifi7/dp_mon.c
+--- a/drivers/net/wireless/ath/ath12k/wifi7/dp_mon.c
++++ b/drivers/net/wireless/ath/ath12k/wifi7/dp_mon.c
+@@ -3005,9 +3005,9 @@ ath12k_wifi7_dp_mon_parse_rx_dest(struct ath12k_pdev_dp *dp_pdev,
+ 		ptr += sizeof(*tlv) + tlv_len;
+ 		ptr = PTR_ALIGN(ptr, HAL_TLV_64_ALIGN);
+ 
+-		if ((ptr - skb->data) > skb->len)
++		if (unlikely(ptr - skb->data > skb->len ||
++			     skb->len - (ptr - skb->data) < sizeof(*tlv)))
+ 			break;
+-
+ 	} while ((hal_status == HAL_RX_MON_STATUS_PPDU_NOT_DONE) ||
+ 		 (hal_status == HAL_RX_MON_STATUS_BUF_ADDR) ||
+ 		 (hal_status == HAL_RX_MON_STATUS_MPDU_START) ||
