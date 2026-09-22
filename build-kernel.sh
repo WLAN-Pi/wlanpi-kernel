@@ -689,11 +689,9 @@ for KVER in "${HEADER_VERSIONS[@]}"; do
     # Determine variant name and corresponding kernel package
     if [[ "$KVER" == *"v8-wlanpi"* ]]; then
         VARIANT_NAME="v8"
-        KERNEL_PKG_NAME="$PACKAGE_NAME_V8"
         VARIANT_PKG_VERSION="$PACKAGE_VERSION_V8"
     else
         VARIANT_NAME="2712"
-        KERNEL_PKG_NAME="$PACKAGE_NAME_2712"
         VARIANT_PKG_VERSION="$PACKAGE_VERSION_2712"
     fi
 
