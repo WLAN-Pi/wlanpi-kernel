@@ -215,6 +215,33 @@ else
     cd "$BASE_DIR"
 fi
 
+# Apply patches once, on the shared source tree, before building any variant.
+# Both bcm2711 and bcm2712 build from this same tree, so patching here (rather
+# than inside a variant build) ensures v8, 2712, and both targets are patched.
+echo "Checking for patches in $PATCHES_DIR..."
+shopt -s nullglob
+patches=("$PATCHES_DIR"/*.patch)
+if [ ${#patches[@]} -gt 0 ]; then
+    echo "Applying ${#patches[@]} patch(es)..."
+    patch_failures=0
+    cd "$KERNEL_SRC_DIR"
+    for patch in "${patches[@]}"; do
+        echo "Applying patch: $(basename "$patch")"
+        if ! patch -p1 --ignore-whitespace -N < "$patch"; then
+            echo "ERROR: failed to apply $(basename "$patch")"
+            patch_failures=$((patch_failures + 1))
+        fi
+    done
+    cd "$BASE_DIR"
+    if [ "$patch_failures" -ne 0 ]; then
+        echo "ERROR: $patch_failures patch(es) failed to apply"
+        exit 1
+    fi
+else
+    echo "No patches found in $PATCHES_DIR."
+fi
+shopt -u nullglob
+
 # Export environment variables
 export ARCH="$ARCH"
 export CROSS_COMPILE="$CROSS_COMPILE"
@@ -253,23 +280,6 @@ build_kernel_variant() {
     else
         echo "ERROR: Custom config file $CUSTOM_CONFIG not found."
         exit 1
-    fi
-
-    # Apply patches (only on first build)
-    if [ "$VARIANT" == "bcm2711" ]; then
-        echo "Checking for patches in $PATCHES_DIR..."
-        shopt -s nullglob
-        patches=("$PATCHES_DIR"/*.patch)
-        if [ ${#patches[@]} -gt 0 ]; then
-            echo "Applying ${#patches[@]} patch(es)..."
-            for patch in "${patches[@]}"; do
-                echo "Applying patch: $(basename "$patch")"
-                patch -p1 --ignore-whitespace -N < "$patch" || true
-            done
-        else
-            echo "No patches found in $PATCHES_DIR."
-        fi
-        shopt -u nullglob
     fi
 
     # Build the kernel
@@ -536,21 +546,45 @@ fi
 shopt -u nullglob
 
 # Select kernel for config.txt
+HAVE_V8=no
+HAVE_PI5=no
 if [ -f "$FIRMWARE_DIR/wlanpi-kernel8.img" ]; then
-    KERNEL_IMG="wlanpi-kernel8.img"
-elif [ -f "$FIRMWARE_DIR/wlanpi-kernel_2712.img" ]; then
-    KERNEL_IMG="wlanpi-kernel_2712.img"
-else
+    HAVE_V8=yes
+fi
+if [ -f "$FIRMWARE_DIR/wlanpi-kernel_2712.img" ]; then
+    HAVE_PI5=yes
+fi
+
+if [ "$HAVE_V8" = no ] && [ "$HAVE_PI5" = no ]; then
     echo "ERROR: No kernel image found after installation"
     exit 1
 fi
 
-# Update config.txt
-echo "Configuring boot to use $KERNEL_IMG..."
-if grep -q "^kernel=" "$CONFIG_TXT"; then
-    sed -i "s|^kernel=.*|kernel=$KERNEL_IMG|" "$CONFIG_TXT"
+# Drop any selection this package previously wrote, plus the legacy global
+# kernel= line older versions used, so reinstalls/upgrades stay idempotent.
+if grep -q '^# BEGIN WLAN Pi kernel selection$' "$CONFIG_TXT"; then
+    sed -i '/^# BEGIN WLAN Pi kernel selection$/,/^# END WLAN Pi kernel selection$/d' "$CONFIG_TXT"
+fi
+sed -i '/^kernel=wlanpi-kernel8\.img$/d; /^kernel=wlanpi-kernel_2712\.img$/d' "$CONFIG_TXT"
+
+if [ "$HAVE_V8" = yes ] && [ "$HAVE_PI5" = yes ]; then
+    # Dual package: the firmware model filters select the matching kernel.
+    echo "Configuring boot: Pi 4/CM4 -> wlanpi-kernel8.img, Pi 5/CM5 -> wlanpi-kernel_2712.img..."
+    cat >> "$CONFIG_TXT" <<'EOF'
+# BEGIN WLAN Pi kernel selection
+[pi4]
+kernel=wlanpi-kernel8.img
+[pi5]
+kernel=wlanpi-kernel_2712.img
+[all]
+# END WLAN Pi kernel selection
+EOF
+elif [ "$HAVE_PI5" = yes ]; then
+    echo "Configuring boot to use wlanpi-kernel_2712.img..."
+    echo "kernel=wlanpi-kernel_2712.img" >> "$CONFIG_TXT"
 else
-    echo "kernel=$KERNEL_IMG" >> "$CONFIG_TXT"
+    echo "Configuring boot to use wlanpi-kernel8.img..."
+    echo "kernel=wlanpi-kernel8.img" >> "$CONFIG_TXT"
 fi
 
 echo "Installation complete"

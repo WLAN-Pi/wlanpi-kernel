@@ -17,12 +17,12 @@ The build script supports building kernels for different hardware variants:
 **Building for different Debian releases:**
 
 ```bash
-# Default: Debian Bookworm
+# Default: Debian Trixie
 ./build-kernel.sh
 
-# Target Debian Trixie (testing)
-DEBIAN_RELEASE=trixie ./build-kernel.sh
-DEBIAN_RELEASE=trixie ./build-kernel.sh v8
+# Target Debian Bookworm
+DEBIAN_RELEASE=bookworm ./build-kernel.sh
+DEBIAN_RELEASE=bookworm ./build-kernel.sh v8
 ```
 
 **Requirements:**
@@ -31,19 +31,19 @@ DEBIAN_RELEASE=trixie ./build-kernel.sh v8
 
 **Output packages:**
 
-When building **v8** only (for bookworm):
-- `wlanpi-kernel-bookworm-v8_*.deb`
-- `wlanpi-kernel-headers-bookworm-v8_*.deb`
+When building **v8** only (for trixie):
+- `wlanpi-kernel-trixie-v8_*.deb`
+- `wlanpi-kernel-headers-trixie-v8_*.deb`
 
-When building **2712** only (for bookworm):
-- `wlanpi-kernel-bookworm-2712_*.deb`
-- `wlanpi-kernel-headers-bookworm-2712_*.deb`
+When building **2712** only (for trixie):
+- `wlanpi-kernel-trixie-2712_*.deb`
+- `wlanpi-kernel-headers-trixie-2712_*.deb`
 
-When building **both** (for bookworm):
+When building **both** (for trixie):
 - All of the above, PLUS
-- `wlanpi-kernel-bookworm_*.deb` - Unified dual-kernel package for universal images
+- `wlanpi-kernel-trixie_*.deb` - Unified dual-kernel package for universal images
 
-*Note: Replace `bookworm` with `trixie` in package names when building with `DEBIAN_RELEASE=trixie`*
+*Note: Replace `trixie` with `bookworm` in package names when building with `DEBIAN_RELEASE=bookworm`*
 
 ### CI/CD build with GitHub actions
 
@@ -52,7 +52,7 @@ The repository includes automated builds via GitHub Actions:
 **Automatic builds:** Triggered on push to branch (builds both kernels by default)
 
 **Manual builds:** 
-1. Go to **Actions** → **Build WLAN Pi Kernel for Debian Bookworm**
+1. Go to **Actions** → **Build and archive WLAN Pi kernel package**
 2. Click **"Run workflow"**
 3. Select kernel variant: `both`, `v8`, or `2712`
 4. Click **"Run workflow"** button
@@ -63,7 +63,7 @@ Built packages are uploaded as separate artifacts per variant for easy download.
 
 - **v8** (Pi 4/CM4): 4KB page size, `CONFIG_ARM64_4K_PAGES`, uses `bcm2711_defconfig`
 - **2712** (Pi 5): 16KB page size, `CONFIG_ARM64_16K_PAGES`, uses `bcm2712_defconfig`
-- **Dual package**: Contains both kernels, firmware auto-selects based on hardware
+- **Dual package**: Contains both kernels; `[pi4]`/`[pi5]` conditional filters in `config.txt` select the matching kernel at boot
 
 See [DUAL-KERNEL.md](DUAL-KERNEL.md) for detailed information about the dual-kernel packaging approach.
 
@@ -83,12 +83,12 @@ See [DUAL-KERNEL.md](DUAL-KERNEL.md) for detailed information about the dual-ker
 3. **Install on target device:**
    ```bash
    # For Pi 4/CM4:
-   sudo dpkg -i output/wlanpi-kernel-bookworm-v8_*.deb
+   sudo dpkg -i output/wlanpi-kernel-trixie-v8_*.deb
 
    # For Pi 5:
-   sudo dpkg -i output/wlanpi-kernel-bookworm-2712_*.deb
+   sudo dpkg -i output/wlanpi-kernel-trixie-2712_*.deb
 
    # For universal image (works on both):
-   sudo dpkg -i output/wlanpi-kernel-bookworm_*.deb
+   sudo dpkg -i output/wlanpi-kernel-trixie_*.deb
    ```
 

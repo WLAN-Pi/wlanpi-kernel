@@ -4,13 +4,15 @@
 
 The WLAN Pi kernel build system creates **three separate kernel packages** to support different deployment scenarios:
 
-1. **`wlanpi-kernel-bookworm-v8`** - Pi 4/CM4 only (v8, 4KB pages, space-optimized for 8GB eMMC)
-2. **`wlanpi-kernel-bookworm-2712`** - Pi 5 only (2712, 16KB pages)
-3. **`wlanpi-kernel-bookworm`** - Unified package with both kernels (for systems with ample storage)
+1. **`wlanpi-kernel-trixie-v8`** - Pi 4/CM4 only (v8, 4KB pages, space-optimized for 8GB eMMC)
+2. **`wlanpi-kernel-trixie-2712`** - Pi 5 only (2712, 16KB pages)
+3. **`wlanpi-kernel-trixie`** - Unified package with both kernels (for systems with ample storage)
+
+Package names use the target Debian release (`$DEBIAN_RELEASE`, `trixie` by default); substitute `bookworm` when building with `DEBIAN_RELEASE=bookworm`.
 
 This conditional packaging approach allows WLAN Pi to optimize for both **space-constrained deployments** (wlanpi1-lite on 8GB eMMC) and **unified multi-platform deployments** (wlanpi2-full on 32GB+ SD cards).
 
-> **Note on dual-kernel package:** The unified `wlanpi-kernel-bookworm` package containing both v8 and 2712 kernels is intentionally non-standard for Debian packaging. This design allows a single system image (wlanpi2-full) to be flashed onto either Pi 4 or Pi 5 hardware without requiring users to know which platform they have. The Raspberry Pi firmware automatically selects the appropriate kernel at boot based on hardware detection. For space-constrained deployments or standard Debian practices, use the variant-specific packages (`-v8` or `-2712`) instead.
+> **Note on dual-kernel package:** The unified `wlanpi-kernel-trixie` package containing both v8 and 2712 kernels is intentionally non-standard for Debian packaging. This design allows a single system image (wlanpi2-full) to be flashed onto either Pi 4 or Pi 5 hardware without requiring users to know which platform they have. The package writes `[pi4]`/`[pi5]` conditional filters to `config.txt`, and the Raspberry Pi firmware applies the matching section at boot. For space-constrained deployments or standard Debian practices, use the variant-specific packages (`-v8` or `-2712`) instead.
 
 ## Why dual kernels?
 
@@ -19,7 +21,7 @@ This conditional packaging approach allows WLAN Pi to optimize for both **space-
 - **Pi 4 (BCM2711):** Uses 4KB page size (`CONFIG_ARM64_4K_PAGES`)
 - **Pi 5 (BCM2712):** Uses 16KB page size (`CONFIG_ARM64_16K_PAGES`)
 
-These are **binary incompatible** - a kernel compiled for one page size cannot boot on hardware expecting a different page size. Therefore, we must build and ship separate kernels for each platform.
+A 16KB-page kernel cannot boot on a Pi 4 (BCM2711 only supports 4KB pages), so Pi 5 needs its own image. The reverse is not true — the 4KB v8 kernel also boots on a Pi 5 — but the 16KB image is preferred there for performance, so we build and ship both.
 
 ## Architecture
 
@@ -34,14 +36,24 @@ The package includes two kernel images:
 
 ### Automatic kernel selection
 
-**The Raspberry Pi boot firmware automatically selects the correct kernel based on detected hardware:**
+The dual package writes conditional model filters into `/boot/firmware/config.txt`, and the Raspberry Pi firmware applies the matching section:
+
+```
+# BEGIN WLAN Pi kernel selection
+[pi4]
+kernel=wlanpi-kernel8.img
+[pi5]
+kernel=wlanpi-kernel_2712.img
+[all]
+# END WLAN Pi kernel selection
+```
 
 1. Firmware reads `/boot/firmware/config.txt`
-2. Firmware detects hardware platform (BCM2711 vs BCM2712)
-3. For **Pi 4/CM4:** Firmware loads `wlanpi-kernel8.img`
-4. For **Pi 5:** Firmware loads `wlanpi-kernel_2712.img` (firmware override)
+2. `[pi4]` matches Pi 4, CM4, CM4S and Pi 400 → loads `wlanpi-kernel8.img`
+3. `[pi5]` matches Pi 5, 500, 500+ and CM5 → loads `wlanpi-kernel_2712.img`
+4. `[all]` resets the filter for any settings that follow
 
-**No manual configuration required** - the firmware handles this transparently.
+**No manual configuration required.** The variant-specific packages (`-v8`, `-2712`) install a single image and set a global `kernel=` line instead. Note that an explicit `kernel=` line overrides the firmware's default `kernel_2712.img` selection, which is why the dual package must use the model filters rather than one global line.
 
 ### Package structure
 
@@ -49,39 +61,39 @@ The package includes two kernel images:
 
 ```
 # v8 package (Pi 4/CM4 only, space-optimized)
-wlanpi-kernel-bookworm-v8_<version>_arm64.deb
+wlanpi-kernel-trixie-v8_<version>_arm64.deb
 ├── /usr/local/lib/wlanpi-kernel/boot/firmware/
 │   ├── wlanpi-kernel8.img              # Pi 4 kernel only
 │   ├── *.dtb                           # Device Tree Blobs
 │   └── overlays/*.dtbo                 # Device Tree overlays
 └── /lib/modules/
-    └── 6.12.x-v8-wlanpi/               # Pi 4 modules only
+    └── 7.2.x-v8-wlanpi/               # Pi 4 modules only
 
 # 2712 package (Pi 5 only)
-wlanpi-kernel-bookworm-2712_<version>_arm64.deb
+wlanpi-kernel-trixie-2712_<version>_arm64.deb
 ├── /usr/local/lib/wlanpi-kernel/boot/firmware/
 │   ├── wlanpi-kernel_2712.img          # Pi 5 kernel only
 │   ├── *.dtb                           # Device Tree Blobs
 │   └── overlays/*.dtbo                 # Device Tree overlays
 └── /lib/modules/
-    └── 6.12.x-2712-wlanpi/             # Pi 5 modules only
+    └── 7.2.x-2712-wlanpi/             # Pi 5 modules only
 
 # Unified dual kernel package
-wlanpi-kernel-bookworm_<version>_arm64.deb
+wlanpi-kernel-trixie_<version>_arm64.deb
 ├── /usr/local/lib/wlanpi-kernel/boot/firmware/
 │   ├── wlanpi-kernel8.img              # Pi 4 kernel
 │   ├── wlanpi-kernel_2712.img          # Pi 5 kernel
 │   ├── *.dtb                           # Device Tree Blobs (shared)
 │   └── overlays/*.dtbo                 # Device Tree overlays (shared)
 └── /lib/modules/
-    ├── 6.12.x-v8-wlanpi/               # Pi 4 modules
-    └── 6.12.x-2712-wlanpi/             # Pi 5 modules
+    ├── 7.2.x-v8-wlanpi/               # Pi 4 modules
+    └── 7.2.x-2712-wlanpi/             # Pi 5 modules
 ```
 
 **Two separate headers packages:**
 
-- `wlanpi-kernel-headers-bookworm-v8_<version>_arm64.deb`
-- `wlanpi-kernel-headers-bookworm-2712_<version>_arm64.deb`
+- `wlanpi-kernel-headers-trixie-v8_<version>_arm64.deb`
+- `wlanpi-kernel-headers-trixie-2712_<version>_arm64.deb`
 
 ## Which package should I use?
 
@@ -89,10 +101,10 @@ wlanpi-kernel-bookworm_<version>_arm64.deb
 
 | Deployment Scenario | Package | Rationale |
 |---------------------|---------|-----------|
-| **wlanpi1-lite** (8GB eMMC, dual-partition) | `wlanpi-kernel-bookworm-v8` | Space-optimized for CM4 with constrained storage |
-| **wlanpi1-full** (32GB+ SD card) | `wlanpi-kernel-bookworm` | Unified image boots on both Pi 4 and Pi 5 |
-| **Pi 5 only** | `wlanpi-kernel-bookworm-2712` | Pi 5 specific (16KB pages) |
-| **Pi 4 only** | `wlanpi-kernel-bookworm-v8` | Pi 4 specific (4KB pages) |
+| **wlanpi1-lite** (8GB eMMC, dual-partition) | `wlanpi-kernel-trixie-v8` | Space-optimized for CM4 with constrained storage |
+| **wlanpi1-full** (32GB+ SD card) | `wlanpi-kernel-trixie` | Unified image boots on both Pi 4 and Pi 5 |
+| **Pi 5 only** | `wlanpi-kernel-trixie-2712` | Pi 5 specific (16KB pages) |
+| **Pi 4 only** | `wlanpi-kernel-trixie-v8` | Pi 4 specific (4KB pages) |
 
 ### In pi-gen-bookworm
 
@@ -100,12 +112,12 @@ The image build automatically installs the appropriate package:
 
 **wlanpi1-lite** (`/05-kernel/00-packages`):
 ```
-wlanpi-kernel-bookworm-v8
+wlanpi-kernel-trixie-v8
 ```
 
 **wlanpi2-full** (`/05-kernel/00-packages`):
 ```
-wlanpi-kernel-bookworm
+wlanpi-kernel-trixie
 ```
 
 This ensures:
@@ -140,18 +152,19 @@ BUILD_TARGET=v8 ./build-kernel.sh  # Via environment variable (for CI)
 
 The script performs the following steps:
 
-1. **Clone/update kernel source** from raspberrypi/linux (rpi-6.12.y branch)
+1. **Clone/update kernel source** from raspberrypi/linux (rpi-7.2.y branch)
 
-2. **Build Pi 4 kernel (bcm2711):**
+2. **Apply patches** once to the shared source tree (`patches/*.patch`, in filename order), before any variant is built, so `v8`, `2712`, and `both` targets are all patched. A failed hunk fails the build.
+
+3. **Build Pi 4 kernel (bcm2711):**
 
    - Load `bcm2711_defconfig`
    - Merge `wlanpi_v8_defconfig` (WLAN Pi customizations)
-   - Apply patches
    - Build kernel image, modules, DTBs
    - Install modules to `lib/modules/<version>-v8-wlanpi/`
    - Generate kernel headers
 
-3. **Build Pi 5 kernel (bcm2712):**
+4. **Build Pi 5 kernel (bcm2712):**
 
    - Clean build tree (`make mrproper`)
    - Load `bcm2712_defconfig`
@@ -160,15 +173,15 @@ The script performs the following steps:
    - Install modules to `lib/modules/<version>-2712-wlanpi/`
    - Generate kernel headers
 
-4. **Create three kernel packages:**
+5. **Create three kernel packages:**
 
-   - **v8 (Pi 4 only):** `wlanpi-kernel-bookworm-v8` (kernel8.img + v8 modules)
-   - **2712 (Pi 5 only):** `wlanpi-kernel-bookworm-2712` (kernel_2712.img + 2712 modules)
-   - **Unified:** `wlanpi-kernel-bookworm` (both kernels + both module sets)
+   - **v8 (Pi 4 only):** `wlanpi-kernel-trixie-v8` (kernel8.img + v8 modules)
+   - **2712 (Pi 5 only):** `wlanpi-kernel-trixie-2712` (kernel_2712.img + 2712 modules)
+   - **Unified:** `wlanpi-kernel-trixie` (both kernels + both module sets)
    - All packages include shared DTBs and overlays
    - Each has appropriate postinst script for installation
 
-5. **Create headers packages:**
+6. **Create headers packages:**
 
    - Separate packages for v8 and 2712 headers
    - Allows building kernel modules for either platform
@@ -202,29 +215,29 @@ Custom WLAN Pi kernel configuration for Pi 5:
 **For space-constrained systems (8GB eMMC):**
 
 ```bash
-sudo dpkg -i wlanpi-kernel-bookworm-v8_<version>_arm64.deb
+sudo dpkg -i wlanpi-kernel-trixie-v8_<version>_arm64.deb
 ```
 
 **For systems with ample storage (32GB+ SD cards):**
 
 ```bash
-sudo dpkg -i wlanpi-kernel-bookworm_<version>_arm64.deb
+sudo dpkg -i wlanpi-kernel-trixie_<version>_arm64.deb
 ```
 
 **For Pi 5 only systems:**
 
 ```bash
-sudo dpkg -i wlanpi-kernel-bookworm-2712_<version>_arm64.deb
+sudo dpkg -i wlanpi-kernel-trixie-2712_<version>_arm64.deb
 ```
 
 Optionally install headers for your platform:
 
 ```bash
 # For Pi 4/CM4 (v8):
-sudo dpkg -i wlanpi-kernel-headers-bookworm-v8_<version>_arm64.deb
+sudo dpkg -i wlanpi-kernel-headers-trixie-v8_<version>_arm64.deb
 
 # For Pi 5 (2712):
-sudo dpkg -i wlanpi-kernel-headers-bookworm-2712_<version>_arm64.deb
+sudo dpkg -i wlanpi-kernel-headers-trixie-2712_<version>_arm64.deb
 ```
 
 The postinst script will:
@@ -243,7 +256,7 @@ The pi-gen-bookworm stages install the appropriate package for each image:
 **wlanpi1-lite** (`05-kernel/00-packages`):
 
 ```
-wlanpi-kernel-bookworm-v8
+wlanpi-kernel-trixie-v8
 ```
 - Target: CM4 with 8GB eMMC (space-constrained)
 - Boots on: Pi 4, CM4 only
@@ -251,7 +264,7 @@ wlanpi-kernel-bookworm-v8
 **wlanpi2-full** (`05-kernel/00-packages`):
 
 ```
-wlanpi-kernel-bookworm
+wlanpi-kernel-trixie
 ```
 
 - Target: Pi 4/5 with 32GB+ SD card
@@ -280,8 +293,8 @@ uname -r
 ```
 
 Expected output:
-- On Pi 4/CM4: `6.12.x-v8-wlanpi+` (e.g., `6.12.6-v8-wlanpi+`)
-- On Pi 5: `6.12.x-2712-wlanpi+` (e.g., `6.12.6-2712-wlanpi+`)
+- On Pi 4/CM4: `7.2.x-v8-wlanpi+` (e.g., `7.2.6-v8-wlanpi+`)
+- On Pi 5: `7.2.x-2712-wlanpi+` (e.g., `7.2.6-2712-wlanpi+`)
 
 ### Check module directories
 
@@ -291,8 +304,8 @@ ls /lib/modules/
 
 Expected output:
 ```
-6.12.6-v8-wlanpi+/
-6.12.6-2712-wlanpi+/
+7.2.6-v8-wlanpi+/
+7.2.6-2712-wlanpi+/
 ```
 
 ## Maintenance
@@ -316,7 +329,7 @@ When updating WLAN Pi-specific kernel configurations:
 
 ### Kernel version updates
 
-When updating the kernel version (e.g., from rpi-6.12.y to rpi-6.18.y):
+When updating the kernel version (e.g., from rpi-7.2.y to rpi-7.3.y):
 
 1. Update `KERNEL_BRANCH` in `build-kernel.sh`
 2. Verify both `bcm2711_defconfig` and `bcm2712_defconfig` still exist upstream
@@ -329,9 +342,9 @@ When updating the kernel version (e.g., from rpi-6.12.y to rpi-6.18.y):
 
 - Solution: Ensure kernel source is from a recent enough branch
 
-**Issue: Build fails on second kernel (bcm2712)**
+**Issue: Patch fails to apply**
 
-- Solution: Check for patches that assume bcm2711 config - may need conditional patch application
+- Solution: The build fails on any failed hunk. Re-verify the patch against the current kernel branch; drop patches that are already upstream and re-adapt local ones. GNU `patch` leaves `.rej` files next to the affected source.
 
 **Issue: Module conflicts between kernel versions**
 
@@ -343,9 +356,9 @@ This conditional kernel packaging approach provides flexibility similar to Raspb
 
 | Raspberry Pi OS | WLAN Pi Equivalent | Purpose |
 |----------------|-------------------|---------|
-| `linux-image-rpi-v8` | `wlanpi-kernel-bookworm-v8` | Pi 4/CM4 kernel only (v8, 4KB pages) |
-| `linux-image-rpi-2712` | `wlanpi-kernel-bookworm-2712` | Pi 5 kernel only (2712, 16KB pages) |
-| Both installed | `wlanpi-kernel-bookworm` | Unified package (both in one) |
+| `linux-image-rpi-v8` | `wlanpi-kernel-trixie-v8` | Pi 4/CM4 kernel only (v8, 4KB pages) |
+| `linux-image-rpi-2712` | `wlanpi-kernel-trixie-2712` | Pi 5 kernel only (2712, 16KB pages) |
+| Both installed | `wlanpi-kernel-trixie` | Unified package (both in one) |
 
 **Key difference:** WLAN Pi offers three package options to accommodate both space-constrained (8GB eMMC) and unified (32GB+ SD) deployment scenarios, whereas upstream expects users to install both packages separately.
 

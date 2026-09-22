@@ -65,7 +65,7 @@ The `patches/` directory contains patches applied to the kernel source before ea
 - `ath12k-wlanpi-disable-aspm-wcn7850.patch` — WLAN Pi local patch (not from ath-next): sets `supports_aspm = false` for `wcn7850 hw2.0` so ath12k never restores PCIe ASPM L0s/L1 after firmware boot. On the BCM2711 bridge the card stops delivering events once ASPM is re-enabled (WMI credit timeouts, country 00, no scan/capture). Re-derive on every kernel bump; the hunk lives in `wifi7/hw.c` next to the WCN7850 `hw_params`
 - `iwlwifi-enable-320mhz.patch` — forces `slow_pcie = false` in the Intel iwlwifi driver to enable 320 MHz EHT channels regardless of PCIe link speed
 
-Patches are applied in filename order with `patch -p1 --ignore-whitespace -N`. **The build script pipes this through `|| true`, so a failed patch does not fail the build** — re-verify every patch by hand after a kernel version bump. GNU `patch` also drops `<file>.orig` backups whenever a hunk applies with an offset; those are harmless to the build but must not be captured into new patch files.
+Patches are applied in filename order with `patch -p1 --ignore-whitespace -N`, **once on the shared source tree after checkout and before any variant is built**, so the `v8`, `2712`, and `both` targets are all patched. A failed hunk fails the build: the script counts failures and exits non-zero. Re-verify every patch by hand after a kernel version bump. GNU `patch` also drops `<file>.orig` backups whenever a hunk applies with an offset; those are harmless to the build but must not be captured into new patch files.
 
 ### Package installation
 
