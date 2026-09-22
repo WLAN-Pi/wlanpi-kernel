@@ -1,0 +1,44 @@
+From: Jake Snyder <jsnyder81@gmail.com>
+Date: Fri, 18 Sep 2026 16:00:00 -0500
+Subject: [PATCH] wifi: ath12k: WLAN Pi: keep PCIe ASPM disabled on WCN7850
+
+ath12k disables ASPM L0s/L1 on the endpoint for firmware download and,
+for chips with hw_params->supports_aspm, restores the saved link-control
+value in ath12k_pci_start() once the firmware is up.
+
+On the WLAN Pi M4+ (BCM2711 PCIe bridge) the WCN7850/WCN7851 stops
+delivering events to the host as soon as ASPM is restored: the last
+event seen is the rfkill state change during init, HTC TX credits are
+never returned, every subsequent WMI command hits the 3 s credit
+timeout ("wmi command 12291 timeout", "failed to create WMI vdev 0:
+-11"), the regulatory domain stays at country 00, scans and monitor
+capture return nothing, and unloading the driver hangs the system.
+Booting with pcie_aspm=off or pcie_aspm.policy=performance makes the
+same kernel/firmware fully functional (73 BSSs across 2.4/5/6 GHz,
+monitor capture on all bands, 11d country resolved).
+
+Treat WCN7850 like the QCN9274/IPQ parts and leave the link in L0 after
+init. This only touches the endpoint's own link-control register while
+ath12k is bound, unlike the global cmdline/Kconfig alternatives.
+Power cost is a few hundred mW on an idle link, which a WLAN Pi in
+monitor mode never has anyway.
+
+This is a WLAN Pi local patch, not from ath-next.
+---
+ drivers/net/wireless/ath/ath12k/wifi7/hw.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+--- a/drivers/net/wireless/ath/ath12k/wifi7/hw.c
++++ b/drivers/net/wireless/ath/ath12k/wifi7/hw.c
+@@ -516,7 +516,10 @@ static const struct ath12k_hw_params ath12k_hw_params[] = {
+ 
+ 		.iova_mask = ATH12K_PCIE_MAX_PAYLOAD_SIZE - 1,
+ 
+-		.supports_aspm = true,
++		/* WLAN Pi: the BCM2711/BCM2712 bridge loses the WCN7850 once
++		 * ASPM is restored after firmware boot; keep the link in L0.
++		 */
++		.supports_aspm = false,
+ 
+ 		.ce_ie_addr = NULL,
+ 		.ce_remap = NULL,
