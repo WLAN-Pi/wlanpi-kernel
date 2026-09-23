@@ -202,7 +202,7 @@ jobs:
             echo "Pushing ${deb} to wlanpi/dev/debian/${DEBIAN_RELEASE}"
             out=$(package_cloud push "wlanpi/dev/debian/${DEBIAN_RELEASE}" "$deb" 2>&1) || status=1
             echo "$out"
-            if ! echo "$out" | grep -q "success!"; then
+            if ! echo "$out" | grep -q "Pushing .*success!"; then
               echo "::error::Upload of ${deb} to debian/${DEBIAN_RELEASE} did not report success"
               status=1
             fi
