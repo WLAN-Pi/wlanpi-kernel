@@ -1,0 +1,47 @@
+From: WLAN Pi <wlanpi-kernel local patch>
+Subject: [PATCH] wifi: ath12k: advertise MLD/EML capabilities on the station iftype
+
+ath12k_mac_hw_register() copies the firmware's MLO capabilities
+(WMI_SERVICE_READY_EXT2 eml_cap / mld_cap) into ath12k_iftypes_ext_capa[2],
+which is the NL80211_IFTYPE_AP entry. The array is laid out as:
+
+  [0] default (no iftype)
+  [1] NL80211_IFTYPE_STATION
+  [2] NL80211_IFTYPE_AP
+
+mac80211 builds the Basic Multi-Link element of a station's
+(Re)Association Request from the STATION entry, which is left at zero.
+A WCN7850 client therefore advertises MLD Capabilities 0x0000
+(Maximum Number of Simultaneous Links = 0) and no EML Capabilities,
+even though the firmware reports single_chip_mlo_support = 1. The AP
+then keeps all traffic on a single link.
+
+Write the capabilities to the STATION entry instead. The WLAN Pi only
+runs ath12k as a client, so AP-mode MLD advertisement is not needed here.
+
+Observed on wlanpi-511 (WCN7850 hw2.0, fw WLAN.HMT.1.1.c7-00108) with
+wlanpi-kernel 7.2.6 and 7.2.7: the Reassociation Request carries
+MLD Capabilities 0x0000 and no EML field, while the AP response
+advertises EMLSR and Max Simultaneous Links = 2.
+
+Local WLAN Pi patch (not from ath-next). Re-check on every kernel bump:
+drop it once upstream writes the station entry.
+
+---
+ drivers/net/wireless/ath/ath12k/mac.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/wireless/ath/ath12k/mac.c b/drivers/net/wireless/ath/ath12k/mac.c
+--- a/drivers/net/wireless/ath/ath12k/mac.c
++++ b/drivers/net/wireless/ath/ath12k/mac.c
+@@ -14683,8 +14683,8 @@
+ 	 * WMI_SERVICE_READY_EXT2_EVENT if single_chip_mlo_supp is set.
+ 	 */
+ 	if (ab->ag->mlo_capable) {
+-		ath12k_iftypes_ext_capa[2].eml_capabilities = cap->eml_cap;
+-		ath12k_iftypes_ext_capa[2].mld_capa_and_ops = cap->mld_cap;
++		ath12k_iftypes_ext_capa[1].eml_capabilities = cap->eml_cap;
++		ath12k_iftypes_ext_capa[1].mld_capa_and_ops = cap->mld_cap;
+ 		wiphy->flags |= WIPHY_FLAG_SUPPORTS_MLO;
+
+ 		ieee80211_hw_set(hw, MLO_MCAST_MULTI_LINK_TX);
