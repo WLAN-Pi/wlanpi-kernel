@@ -12,36 +12,62 @@ which is the NL80211_IFTYPE_AP entry. The array is laid out as:
 mac80211 builds the Basic Multi-Link element of a station's
 (Re)Association Request from the STATION entry, which is left at zero.
 A WCN7850 client therefore advertises MLD Capabilities 0x0000
-(Maximum Number of Simultaneous Links = 0) and no EML Capabilities,
-even though the firmware reports single_chip_mlo_support = 1. The AP
-then keeps all traffic on a single link.
+(Maximum Number of Simultaneous Links = 0, one link at a time) and no
+EML Capabilities, even though the firmware reports
+single_chip_mlo_support = 1. The AP then keeps all traffic on a single
+link.
 
-Write the capabilities to the STATION entry instead. The WLAN Pi only
-runs ath12k as a client, so AP-mode MLD advertisement is not needed here.
+Write the capabilities to the STATION entry instead, and cap one field
+of the firmware's mld_cap (0x0042 on WLAN.HMT.1.1.c7-00108): Maximum
+Number of Simultaneous Links is encoded as the link count minus one.
+The firmware's 2 claims three links, but QMI reports num_link 2. Cap it
+at 1 (two simultaneous links).
+
+TID-To-Link Mapping Negotiation Support is passed through as the
+firmware reports it (2). ath12k does not implement can_neg_ttlm, so
+mac80211 still rejects any negotiation request.
+
+The resulting station capabilities are MLD 0x0041 and EML 0x2037
+(EMLSR supported, no EMLMR). The client can use both links at once,
+and ath12k passes the AP's EMLSR capability to firmware in the peer
+assoc ML params, so firmware can fall back to EMLSR when the AP
+supports it.
+
+The WLAN Pi only runs ath12k as a client, so AP-mode MLD advertisement
+is not needed here.
 
 Observed on wlanpi-511 (WCN7850 hw2.0, fw WLAN.HMT.1.1.c7-00108) with
 wlanpi-kernel 7.2.6 and 7.2.7: the Reassociation Request carries
 MLD Capabilities 0x0000 and no EML field, while the AP response
-advertises EMLSR and Max Simultaneous Links = 2.
+advertises EMLSR and Max Simultaneous Links = 2 (three links).
 
 Local WLAN Pi patch (not from ath-next). Re-check on every kernel bump:
 drop it once upstream writes the station entry.
 
 ---
- drivers/net/wireless/ath/ath12k/mac.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/wireless/ath/ath12k/mac.c | 13 +++++++++++--
+ 1 file changed, 11 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/wireless/ath/ath12k/mac.c b/drivers/net/wireless/ath/ath12k/mac.c
 --- a/drivers/net/wireless/ath/ath12k/mac.c
 +++ b/drivers/net/wireless/ath/ath12k/mac.c
-@@ -14683,8 +14683,8 @@
+@@ -14938,8 +14938,17 @@
  	 * WMI_SERVICE_READY_EXT2_EVENT if single_chip_mlo_supp is set.
  	 */
  	if (ab->ag->mlo_capable) {
 -		ath12k_iftypes_ext_capa[2].eml_capabilities = cap->eml_cap;
 -		ath12k_iftypes_ext_capa[2].mld_capa_and_ops = cap->mld_cap;
++		u16 mld_cap = cap->mld_cap;
++
++		/* The field is the link count minus one. Firmware reports 2
++		 * (three links) but QMI reports num_link 2, so cap it at 1.
++		 */
++		if (u16_get_bits(mld_cap, IEEE80211_MLD_CAP_OP_MAX_SIMUL_LINKS) > 1)
++			u16p_replace_bits(&mld_cap, 1,
++					  IEEE80211_MLD_CAP_OP_MAX_SIMUL_LINKS);
++
 +		ath12k_iftypes_ext_capa[1].eml_capabilities = cap->eml_cap;
-+		ath12k_iftypes_ext_capa[1].mld_capa_and_ops = cap->mld_cap;
++		ath12k_iftypes_ext_capa[1].mld_capa_and_ops = mld_cap;
  		wiphy->flags |= WIPHY_FLAG_SUPPORTS_MLO;
-
+ 
  		ieee80211_hw_set(hw, MLO_MCAST_MULTI_LINK_TX);
