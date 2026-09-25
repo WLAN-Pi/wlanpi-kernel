@@ -43,6 +43,8 @@ Pi 4 (BCM2711) uses 4KB pages; Pi 5 (BCM2712) uses 16KB pages — they are binar
 
 Plus separate `wlanpi-kernel-headers-trixie-v8` and `wlanpi-kernel-headers-trixie-2712` packages.
 
+Package version is `<kernelrelease>-<YYYYMMDDHH>` (UTC build hour, e.g. `7.2.0-v8-wlanpi-2026092514`); the dual package uses the v8 kernelrelease. The hour lets several builds ship on one day; two builds in the same hour collide and packagecloud rejects the second push.
+
 For the unified dual package, the Raspberry Pi firmware auto-selects the correct kernel at boot based on hardware detection — no manual config needed.
 
 ### Kernel customization

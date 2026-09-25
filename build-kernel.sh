@@ -607,7 +607,10 @@ echo "========================================"
 echo "Building Conditional Kernel Packages"
 echo "========================================"
 
-BUILD_DATE=$(date +%Y%m%d)
+# UTC date + hour so same-day rebuilds get a new, higher version (packagecloud
+# rejects duplicates). 10 digits also sorts above the old 8-digit YYYYMMDD.
+# ponytail: one build per hour max; add %M if that stops holding.
+BUILD_DATE=$(date -u +%Y%m%d%H)
 
 # Create variant-specific package versions
 PACKAGE_VERSION_V8="${BCM2711_VERSION}-${BUILD_DATE}"
