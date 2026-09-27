@@ -67,7 +67,7 @@ wlanpi-kernel-trixie-v8_<version>_arm64.deb
 │   ├── *.dtb                           # Device Tree Blobs
 │   └── overlays/*.dtbo                 # Device Tree overlays
 └── /lib/modules/
-    └── 7.2.x-v8-wlanpi/               # Pi 4 modules only
+    └── 7.3.x-v8-wlanpi/               # Pi 4 modules only
 
 # 2712 package (Pi 5 only)
 wlanpi-kernel-trixie-2712_<version>_arm64.deb
@@ -76,7 +76,7 @@ wlanpi-kernel-trixie-2712_<version>_arm64.deb
 │   ├── *.dtb                           # Device Tree Blobs
 │   └── overlays/*.dtbo                 # Device Tree overlays
 └── /lib/modules/
-    └── 7.2.x-2712-wlanpi/             # Pi 5 modules only
+    └── 7.3.x-2712-wlanpi/             # Pi 5 modules only
 
 # Unified dual kernel package
 wlanpi-kernel-trixie_<version>_arm64.deb
@@ -86,8 +86,8 @@ wlanpi-kernel-trixie_<version>_arm64.deb
 │   ├── *.dtb                           # Device Tree Blobs (shared)
 │   └── overlays/*.dtbo                 # Device Tree overlays (shared)
 └── /lib/modules/
-    ├── 7.2.x-v8-wlanpi/               # Pi 4 modules
-    └── 7.2.x-2712-wlanpi/             # Pi 5 modules
+    ├── 7.3.x-v8-wlanpi/               # Pi 4 modules
+    └── 7.3.x-2712-wlanpi/             # Pi 5 modules
 ```
 
 **Two separate headers packages:**
@@ -152,7 +152,7 @@ BUILD_TARGET=v8 ./build-kernel.sh  # Via environment variable (for CI)
 
 The script performs the following steps:
 
-1. **Clone/update kernel source** from raspberrypi/linux (rpi-7.2.y branch)
+1. **Clone/update kernel source** from raspberrypi/linux (rpi-7.3.y branch)
 
 2. **Apply patches** once to the shared source tree (`patches/*.patch`, in filename order), before any variant is built, so `v8`, `2712`, and `both` targets are all patched. A failed hunk fails the build.
 
@@ -293,8 +293,8 @@ uname -r
 ```
 
 Expected output:
-- On Pi 4/CM4: `7.2.x-v8-wlanpi+` (e.g., `7.2.6-v8-wlanpi+`)
-- On Pi 5: `7.2.x-2712-wlanpi+` (e.g., `7.2.6-2712-wlanpi+`)
+- On Pi 4/CM4: `7.3.x-v8-wlanpi+` (e.g., `7.3.0-v8-wlanpi+`)
+- On Pi 5: `7.3.x-2712-wlanpi+` (e.g., `7.3.0-2712-wlanpi+`)
 
 ### Check module directories
 
@@ -304,8 +304,8 @@ ls /lib/modules/
 
 Expected output:
 ```
-7.2.6-v8-wlanpi+/
-7.2.6-2712-wlanpi+/
+7.3.0-v8-wlanpi+/
+7.3.0-2712-wlanpi+/
 ```
 
 ## Maintenance
@@ -329,7 +329,7 @@ When updating WLAN Pi-specific kernel configurations:
 
 ### Kernel version updates
 
-When updating the kernel version (e.g., from rpi-7.2.y to rpi-7.3.y):
+When updating the kernel version (e.g., from rpi-7.3.y to rpi-7.4.y):
 
 1. Update `KERNEL_BRANCH` in `build-kernel.sh`
 2. Verify both `bcm2711_defconfig` and `bcm2712_defconfig` still exist upstream

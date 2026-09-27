@@ -43,7 +43,7 @@ Pi 4 (BCM2711) uses 4KB pages; Pi 5 (BCM2712) uses 16KB pages — they are binar
 
 Plus separate `wlanpi-kernel-headers-trixie-v8` and `wlanpi-kernel-headers-trixie-2712` packages.
 
-Package version is `<kernelrelease>-<YYYYMMDDHH>` (UTC build hour, e.g. `7.2.0-v8-wlanpi-2026092514`); the dual package uses the v8 kernelrelease. The hour lets several builds ship on one day; two builds in the same hour collide and packagecloud rejects the second push.
+Package version is `<kernelrelease>-<YYYYMMDDHH>` (UTC build hour, e.g. `7.3.0-v8-wlanpi-2026092714`); the dual package uses the v8 kernelrelease. The hour lets several builds ship on one day; two builds in the same hour collide and packagecloud rejects the second push.
 
 For the unified dual package, the Raspberry Pi firmware auto-selects the correct kernel at boot based on hardware detection — no manual config needed.
 
@@ -63,7 +63,7 @@ Key differences between the two configs: `CONFIG_ARM64_16K_PAGES`, `CONFIG_ARM64
 The `patches/` directory contains patches applied to the kernel source before each build:
 
 - `0001-MAX3421_NAK_fix_and_shutdown_crash.patch` — fixes NAK retry storm and a spinlock ordering crash in the MAX3421 USB host driver
-- No `ath/ath-next` backports are carried: ath12k is stock rpi-7.2.y apart from the WLAN Pi local `ath12k-wlanpi-*` patches below. If an ath-next fix has to be carried again, keep its upstream commit SHA in the `From` line (verify provenance against `https://git.kernel.org/pub/scm/linux/kernel/git/ath/ath.git`) and compile-check `M=drivers/net/wireless/ath/ath12k`, because a clean `patch` apply does not catch missing symbols
+- No `ath/ath-next` backports are carried: ath12k is stock rpi-7.3.y apart from the WLAN Pi local `ath12k-wlanpi-*` patches below. If an ath-next fix has to be carried again, keep its upstream commit SHA in the `From` line (verify provenance against `https://git.kernel.org/pub/scm/linux/kernel/git/ath/ath.git`) and compile-check `M=drivers/net/wireless/ath/ath12k`, because a clean `patch` apply does not catch missing symbols
 - `ath12k-wlanpi-disable-aspm-wcn7850.patch` — WLAN Pi local patch (not from ath-next): sets `supports_aspm = false` for `wcn7850 hw2.0` so ath12k never restores PCIe ASPM L0s/L1 after firmware boot. On the BCM2711 bridge the card stops delivering events once ASPM is re-enabled (WMI credit timeouts, country 00, no scan/capture). Re-derive on every kernel bump; the hunk lives in `wifi7/hw.c` next to the WCN7850 `hw_params`
 - `iwlwifi-enable-320mhz.patch` — forces `slow_pcie = false` in the Intel iwlwifi driver to enable 320 MHz EHT channels regardless of PCIe link speed
 
@@ -78,11 +78,11 @@ The `postinst` script in each generated package:
 
 ### CI
 
-GitHub Actions (`.github/workflows/build-and-archive-kernel-package.yml`) runs on `ubuntu-24.04-arm` and triggers on pushes to `7.2-trixie` that touch `patches/`, `wlanpi_*_defconfig`, or `build-kernel*.sh`. Artifacts are uploaded per variant. Slack notifications go to the WLAN-Pi org webhook on completion.
+GitHub Actions (`.github/workflows/build-and-archive-kernel-package.yml`) runs on `ubuntu-24.04-arm` and triggers on pushes to `7.3-trixie` that touch `patches/`, `wlanpi_*_defconfig`, or `build-kernel*.sh`. Artifacts are uploaded per variant. Slack notifications go to the WLAN-Pi org webhook on completion.
 
 ## Updating the kernel version
 
-When bumping to a new kernel branch (e.g., `rpi-7.3.y`):
+When bumping to a new kernel branch (e.g., `rpi-7.4.y`):
 1. Update `KERNEL_BRANCH` in `build-kernel.sh`
 2. Verify `bcm2711_defconfig` and `bcm2712_defconfig` still exist in that branch
 3. Re-check every patch: drop the ones now upstream and re-adapt the local ones

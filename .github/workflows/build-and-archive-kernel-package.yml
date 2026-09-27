@@ -3,7 +3,7 @@ name: Build and archive WLAN Pi kernel package
 on:
   push:
     branches:
-      - 7.2-trixie
+      - 7.3-trixie
     paths:
       - 'patches/**'
       - 'wlanpi_*_defconfig'
