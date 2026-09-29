@@ -698,15 +698,18 @@ for KVER in "${HEADER_VERSIONS[@]}"; do
 
     # Determine variant name and corresponding kernel package
     # Headers only work with the exact kernel they were built with: that
-    # variant's package or the dual package from the same build.
+    # variant's package or the dual package from the same build. Replaces:
+    # older kernel packages shipped /lib/modules/<release>/build themselves.
     if [[ "$KVER" == *"v8-wlanpi"* ]]; then
         VARIANT_NAME="v8"
         VARIANT_PKG_VERSION="$PACKAGE_VERSION_V8"
         KERNEL_DEP="$PACKAGE_NAME_V8 (= $PACKAGE_VERSION_V8) | $PACKAGE_NAME_DUAL (= $PACKAGE_VERSION_DUAL)"
+        KERNEL_REPLACES="$PACKAGE_NAME_V8, $PACKAGE_NAME_DUAL"
     else
         VARIANT_NAME="2712"
         VARIANT_PKG_VERSION="$PACKAGE_VERSION_2712"
         KERNEL_DEP="$PACKAGE_NAME_2712 (= $PACKAGE_VERSION_2712)"
+        KERNEL_REPLACES="$PACKAGE_NAME_2712, $PACKAGE_NAME_DUAL"
         if [ "$BUILD_PI4" = true ]; then
             KERNEL_DEP="$KERNEL_DEP | $PACKAGE_NAME_DUAL (= $PACKAGE_VERSION_DUAL)"
         fi
@@ -721,6 +724,7 @@ Priority: optional
 Architecture: arm64
 Maintainer: Josh Schmelzle <josh@joshschmelzle.com>
 Depends: gcc, make, perl, $KERNEL_DEP
+Replaces: $KERNEL_REPLACES
 Description: Linux kernel headers for WLAN Pi Raspberry Pi $VARIANT_NAME kernel
  Kernel header files and scripts for WLAN Pi custom kernel development ($VARIANT_NAME variant).
  Version: $KVER
