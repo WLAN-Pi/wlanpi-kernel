@@ -295,6 +295,9 @@ build_kernel_variant() {
 
     echo "Installing modules to $MODULES_OUTPUT_DIR/$KERNEL_VERSION..."
     make INSTALL_MOD_PATH="$OUTPUT_PATH" modules_install
+    # modules_install links build/source to this tree (a CI runner path).
+    # The headers package owns build; the kernel package must not ship them.
+    rm -f "$MODULES_OUTPUT_DIR/$KERNEL_VERSION/build" "$MODULES_OUTPUT_DIR/$KERNEL_VERSION/source"
 
     echo "Building Device Tree Blobs (DTBs)..."
     make -j"$NUM_CORES" dtbs
@@ -317,21 +320,25 @@ build_kernel_variant() {
         find arch/arm64/boot/dts/overlays/ -name '*.dtbo' -exec cp {} "$DTBO_OUTPUT_DIR" \; || true
     fi
 
-    # Prepare kernel headers
+    # Prepare kernel headers: the tree an out-of-tree module build needs
+    # (Makefile, arch/arm64, include/generated, Module.symvers, scripts),
+    # collected by the kernel's own helper as `make bindeb-pkg` does.
+    # No headers_install: those uapi headers belong to linux-libc-dev.
     echo "Preparing kernel headers for $KERNEL_VERSION..."
     local VARIANT_HEADERS_DIR="$HEADERS_OUTPUT_DIR/$KERNEL_VERSION"
-    mkdir -p "$VARIANT_HEADERS_DIR/usr/src/linux-headers-$KERNEL_VERSION"
+    local HEADERS_SRC_DIR="$VARIANT_HEADERS_DIR/usr/src/linux-headers-$KERNEL_VERSION"
+    rm -rf "$VARIANT_HEADERS_DIR"
     mkdir -p "$VARIANT_HEADERS_DIR/lib/modules/$KERNEL_VERSION"
-
-    make ARCH="$ARCH" CROSS_COMPILE="$CROSS_COMPILE" \
-        INSTALL_HDR_PATH="$VARIANT_HEADERS_DIR/usr" \
-        headers_install
-
-    cp -a "include" "$VARIANT_HEADERS_DIR/usr/src/linux-headers-$KERNEL_VERSION/"
-    cp -a "arch/$ARCH/include" "$VARIANT_HEADERS_DIR/usr/src/linux-headers-$KERNEL_VERSION/arch/"
-    cp Makefile "$VARIANT_HEADERS_DIR/usr/src/linux-headers-$KERNEL_VERSION/"
-    cp .config "$VARIANT_HEADERS_DIR/usr/src/linux-headers-$KERNEL_VERSION/"
-    cp -a scripts "$VARIANT_HEADERS_DIR/usr/src/linux-headers-$KERNEL_VERSION/"
+    # fixdep/modpost run on the Pi. Rebuild them with the target compiler
+    # only when cross-compiling from a non-arm64 host (needs arm64 libc,
+    # e.g. crossbuild-essential-arm64); on arm64 the host build already fits.
+    local EXTMOD_CC='$(CC)'
+    if [ "$(uname -m)" = aarch64 ]; then
+        EXTMOD_CC='$(HOSTCC)'
+    fi
+    make run-command \
+        KBUILD_RUN_COMMAND="CC=$EXTMOD_CC \$(srctree)/scripts/package/install-extmod-build $HEADERS_SRC_DIR"
+    cp .config "$HEADERS_SRC_DIR/"
 
     # Create build symlink
     ln -sf "/usr/src/linux-headers-$KERNEL_VERSION" \
@@ -690,12 +697,19 @@ for KVER in "${HEADER_VERSIONS[@]}"; do
     cp -r "$HEADERS_OUTPUT_DIR/$KVER"/* "$HEADERS_PKG_DIR/"
 
     # Determine variant name and corresponding kernel package
+    # Headers only work with the exact kernel they were built with: that
+    # variant's package or the dual package from the same build.
     if [[ "$KVER" == *"v8-wlanpi"* ]]; then
         VARIANT_NAME="v8"
         VARIANT_PKG_VERSION="$PACKAGE_VERSION_V8"
+        KERNEL_DEP="$PACKAGE_NAME_V8 (= $PACKAGE_VERSION_V8) | $PACKAGE_NAME_DUAL (= $PACKAGE_VERSION_DUAL)"
     else
         VARIANT_NAME="2712"
         VARIANT_PKG_VERSION="$PACKAGE_VERSION_2712"
+        KERNEL_DEP="$PACKAGE_NAME_2712 (= $PACKAGE_VERSION_2712)"
+        if [ "$BUILD_PI4" = true ]; then
+            KERNEL_DEP="$KERNEL_DEP | $PACKAGE_NAME_DUAL (= $PACKAGE_VERSION_DUAL)"
+        fi
     fi
 
     # Create control file
@@ -706,7 +720,7 @@ Section: kernel
 Priority: optional
 Architecture: arm64
 Maintainer: Josh Schmelzle <josh@joshschmelzle.com>
-Depends: gcc, make, perl
+Depends: gcc, make, perl, $KERNEL_DEP
 Description: Linux kernel headers for WLAN Pi Raspberry Pi $VARIANT_NAME kernel
  Kernel header files and scripts for WLAN Pi custom kernel development ($VARIANT_NAME variant).
  Version: $KVER
