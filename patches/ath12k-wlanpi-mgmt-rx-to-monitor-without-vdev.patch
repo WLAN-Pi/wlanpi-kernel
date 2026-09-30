@@ -1,0 +1,38 @@
+From: Josh Schmelzle <josh@joshschmelzle.com>
+Date: Tue, 29 Sep 2026 11:48:47 -0400
+Subject: [PATCH] wifi: ath12k: WLAN Pi: deliver WMI mgmt RX to monitors when no monitor vdev runs
+
+ath12k sets NO_VIRTUAL_MONITOR and marks every WMI management frame
+RX_FLAG_SKIP_MONITOR, expecting the monitor vdev's ring to feed monitor
+interfaces. That vdev only exists once a monitor vif holds a chanctx, so
+a monitor created without a channel next to an AP or STA vif
+(wlanpi-profiler's <if>profiler, wlanpi-core's wlanpiN) receives nothing
+but our own TX. In hostapd mode the profiler never sees an association
+request and never writes a profile.
+
+Skip monitor delivery only while the monitor vdev is started. Otherwise
+mac80211 copies the frame to monitors, as it does on virtual-monitor
+drivers. The started-monitor path, and its duplicate avoidance, is
+unchanged.
+
+WLAN Pi local patch, not from ath-next.
+
+Signed-off-by: Josh Schmelzle <josh@joshschmelzle.com>
+---
+diff --git a/drivers/net/wireless/ath/ath12k/wmi.c b/drivers/net/wireless/ath/ath12k/wmi.c
+index d5160af60..fbeb7f86e 100644
+--- a/drivers/net/wireless/ath/ath12k/wmi.c
++++ b/drivers/net/wireless/ath/ath12k/wmi.c
+@@ -7385,8 +7385,11 @@ static void ath12k_mgmt_rx_event(struct ath12k_base *ab, struct sk_buff *skb)
+ 	/* Firmware is guaranteed to report all essential management frames via
+ 	 * WMI while it can deliver some extra via HTT. Since there can be
+ 	 * duplicates split the reporting wrt monitor/sniffing.
++	 * Without a started monitor vdev nothing feeds monitor interfaces,
++	 * so let mac80211 copy these frames to them.
+ 	 */
+-	status->flag |= RX_FLAG_SKIP_MONITOR;
++	if (READ_ONCE(ar->monitor_started))
++		status->flag |= RX_FLAG_SKIP_MONITOR;
+ 
+ 	/* In case of PMF, FW delivers decrypted frames with Protected Bit set
+ 	 * including group privacy action frames.
