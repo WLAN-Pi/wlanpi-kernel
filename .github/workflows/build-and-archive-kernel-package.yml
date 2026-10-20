@@ -41,8 +41,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-24.04-arm
-    # Build with the target release's own gcc so module builds on the device
-    # use the compiler the kernel was built with.
+    # Device module builds warn unless built with the target release's own gcc.
     container: debian:${{ github.event.inputs.distro || 'trixie' }}
 
     environment: PACKAGECLOUD
@@ -54,21 +53,18 @@ jobs:
       BUILD_TARGET: ${{ github.event.inputs.build_target || 'both' }}
 
     steps:
-      # Step 1: Install dependencies. git must exist before checkout, or it
-      # falls back to a tarball.
+      # Without git, actions/checkout falls back to a tarball.
       - name: Install dependencies
         run: |
           apt-get update
           apt-get install -y build-essential git ca-certificates libncurses-dev flex bison \
               libssl-dev bc libelf-dev kmod cpio rsync python3 dpkg-dev
 
-      # Step 2: Checkout the repository
       - name: Checkout Repository
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
-      # Step 3: Cache kernel build directory
       - name: Cache kernel build directory
         uses: actions/cache@v6
         with:
@@ -78,7 +74,6 @@ jobs:
             ${{ runner.os }}-kernel-${{ env.BUILD_TARGET }}-
             ${{ runner.os }}-kernel-
 
-      # Step 4: Verify Custom Config Files Presence
       - name: Verify Custom Config Files Presence
         run: |
           echo "Verifying presence of kernel config files..."
@@ -103,18 +98,15 @@ jobs:
             fi
           fi
 
-      # Step 5: Make the build script executable
       - name: Make build script executable
         run: chmod +x build-kernel.sh
 
-      # Step 6: Execute the build script
       - name: Execute build script
         id: build-kernel
         env:
           CI: true
         run: ./build-kernel.sh
 
-      # Step 7: List built packages
       - name: List built packages
         id: list-packages
         run: |
@@ -130,7 +122,6 @@ jobs:
             exit 1
           fi
 
-      # Step 8: Upload v8 kernel package
       - name: Upload v8 kernel package
         if: ${{ env.BUILD_TARGET == 'v8' || env.BUILD_TARGET == 'both' }}
         uses: actions/upload-artifact@v7
@@ -139,7 +130,6 @@ jobs:
           path: output/wlanpi-kernel-${{ env.DEBIAN_RELEASE }}-v8_*.deb
           if-no-files-found: warn
 
-      # Step 9: Upload v8 headers package
       - name: Upload v8 headers package
         if: ${{ env.BUILD_TARGET == 'v8' || env.BUILD_TARGET == 'both' }}
         uses: actions/upload-artifact@v7
@@ -148,7 +138,6 @@ jobs:
           path: output/wlanpi-kernel-headers-${{ env.DEBIAN_RELEASE }}-v8_*.deb
           if-no-files-found: warn
 
-      # Step 10: Upload 2712 kernel package
       - name: Upload 2712 Kernel Package
         if: ${{ env.BUILD_TARGET == '2712' || env.BUILD_TARGET == 'both' }}
         uses: actions/upload-artifact@v7
@@ -157,7 +146,6 @@ jobs:
           path: output/wlanpi-kernel-${{ env.DEBIAN_RELEASE }}-2712_*.deb
           if-no-files-found: warn
 
-      # Step 11: Upload 2712 headers package
       - name: Upload 2712 headers package
         if: ${{ env.BUILD_TARGET == '2712' || env.BUILD_TARGET == 'both' }}
         uses: actions/upload-artifact@v7
@@ -166,7 +154,6 @@ jobs:
           path: output/wlanpi-kernel-headers-${{ env.DEBIAN_RELEASE }}-2712_*.deb
           if-no-files-found: warn
 
-      # Step 12: Upload dual kernel package
       - name: Upload dual kernel package
         if: ${{ env.BUILD_TARGET == 'both' }}
         uses: actions/upload-artifact@v7
@@ -175,7 +162,6 @@ jobs:
           path: output/wlanpi-kernel-${{ env.DEBIAN_RELEASE }}_*.deb
           if-no-files-found: warn
 
-      # Step 13: Upload packages to packagecloud wlanpi/dev debian/DEBIAN_RELEASE.
       # Uses the package_cloud CLI directly instead of an action so we can detect
       # upload errors: the CLI exits 0 even when a push fails (Thor bug), which
       # has produced green runs that uploaded nothing.
