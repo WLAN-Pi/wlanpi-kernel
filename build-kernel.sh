@@ -100,10 +100,18 @@ echo ""
 # Determine the directory where the script resides
 BASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# On arm64, build with plain gcc: the headers' `make prepare` warns unless the
+# device's `gcc --version` line matches CONFIG_CC_VERSION_TEXT exactly, and the
+# cross compiler's line starts with aarch64-linux-gnu-gcc.
+CROSS_COMPILE="aarch64-linux-gnu-"
+if [ "$(uname -m)" = aarch64 ]; then
+    CROSS_COMPILE=""
+fi
+
 # Check required tools
 echo "Checking for required tools..."
 MISSING_TOOLS=()
-for tool in git make gcc aarch64-linux-gnu-gcc patch dpkg-deb; do
+for tool in git make gcc "${CROSS_COMPILE}gcc" patch dpkg-deb; do
     if ! command -v "$tool" &> /dev/null; then
         MISSING_TOOLS+=("$tool")
     fi
@@ -124,7 +132,6 @@ KERNEL_REPO="https://github.com/raspberrypi/linux.git"
 KERNEL_BRANCH="rpi-7.2.y"
 KERNEL_SRC_DIR="$BASE_DIR/linux"
 OUTPUT_PATH="$BASE_DIR/output"
-CROSS_COMPILE="aarch64-linux-gnu-"
 ARCH="arm64"
 PATCHES_DIR="$BASE_DIR/patches"
 NUM_CORES=$(nproc)
