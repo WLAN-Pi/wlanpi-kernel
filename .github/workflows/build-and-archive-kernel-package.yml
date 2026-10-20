@@ -174,7 +174,7 @@ jobs:
         env:
           PACKAGECLOUD_TOKEN: ${{ secrets.PACKAGECLOUD_TOKEN }}
         run: |
-          apt-get install -y ruby
+          apt-get install -y ruby ruby-dev
           gem install package_cloud -v 0.3.15
           status=0
           for deb in output/*.deb; do
