@@ -100,9 +100,7 @@ echo ""
 # Determine the directory where the script resides
 BASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# On arm64, build with plain gcc: the headers' `make prepare` warns unless the
-# device's `gcc --version` line matches CONFIG_CC_VERSION_TEXT exactly, and the
-# cross compiler's line starts with aarch64-linux-gnu-gcc.
+# Kbuild warns on device module builds unless `gcc --version` matches CONFIG_CC_VERSION_TEXT.
 CROSS_COMPILE="aarch64-linux-gnu-"
 if [ "$(uname -m)" = aarch64 ]; then
     CROSS_COMPILE=""
