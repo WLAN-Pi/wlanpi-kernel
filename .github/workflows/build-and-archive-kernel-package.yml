@@ -43,6 +43,10 @@ jobs:
     runs-on: ubuntu-24.04-arm
     # Device module builds warn unless built with the target release's own gcc.
     container: debian:${{ github.event.inputs.distro || 'trixie' }}
+    # Container steps default to sh; the config check uses [[ ]].
+    defaults:
+      run:
+        shell: bash
 
     environment: PACKAGECLOUD
 
