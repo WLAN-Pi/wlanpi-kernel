@@ -318,10 +318,11 @@ build_kernel_variant() {
     mkdir -p "$(dirname "$IMAGE_OUTPUT")"
     cp arch/arm64/boot/Image "$IMAGE_OUTPUT"
 
-    if [ "$VARIANT" == "bcm2711" ]; then
+    if [ "$DTBS_COLLECTED" = false ]; then
         echo "Collecting DTBs and overlays..."
         find arch/arm64/boot/dts/ -name '*.dtb' -not -path '*/overlays/*' -exec cp {} "$DTB_OUTPUT_DIR" \;
         find arch/arm64/boot/dts/overlays/ \( -name '*.dtbo' -o -name '*.dtb' \) -exec cp {} "$DTBO_OUTPUT_DIR" \;
+        DTBS_COLLECTED=true
     fi
 
     # Prepare kernel headers: the tree an out-of-tree module build needs
@@ -360,6 +361,7 @@ build_kernel_variant() {
 # Initialize version variables
 BCM2711_VERSION=""
 BCM2712_VERSION=""
+DTBS_COLLECTED=false
 
 if [ "$BUILD_PI4" = true ]; then
     build_kernel_variant "bcm2711" "$BCM2711_BASE_CONFIG" "$BCM2711_CUSTOM_CONFIG" "$BCM2711_KERNEL_IMAGE"
