@@ -321,8 +321,8 @@ build_kernel_variant() {
     # Collect DTBs and overlays (first variant only to avoid duplicates)
     if [ "$VARIANT" == "bcm2711" ]; then
         echo "Collecting DTBs and overlays..."
-        find arch/arm64/boot/dts/ -name '*.dtb' -exec cp {} "$DTB_OUTPUT_DIR" \;
-        find arch/arm64/boot/dts/overlays/ -name '*.dtbo' -exec cp {} "$DTBO_OUTPUT_DIR" \; || true
+        find arch/arm64/boot/dts/ -name '*.dtb' -not -path '*/overlays/*' -exec cp {} "$DTB_OUTPUT_DIR" \;
+        find arch/arm64/boot/dts/overlays/ \( -name '*.dtbo' -o -name '*.dtb' \) -exec cp {} "$DTBO_OUTPUT_DIR" \; || true
     fi
 
     # Prepare kernel headers: the tree an out-of-tree module build needs
@@ -424,6 +424,9 @@ build_kernel_package() {
     fi
     if compgen -G "$DTBO_OUTPUT_DIR"*.dtbo > /dev/null; then
         cp "$DTBO_OUTPUT_DIR"*.dtbo "$PKG_DIR/usr/local/lib/wlanpi-kernel/boot/firmware/overlays/"
+    fi
+    if compgen -G "$DTBO_OUTPUT_DIR"*.dtb > /dev/null; then
+        cp "$DTBO_OUTPUT_DIR"*.dtb "$PKG_DIR/usr/local/lib/wlanpi-kernel/boot/firmware/overlays/"
     fi
 
     # Copy kernel modules
@@ -550,10 +553,10 @@ if [ ${#dtb_files[@]} -gt 0 ]; then
 fi
 
 # Install overlays
-dtbo_files=("$PACKAGE_KERNEL_DIR/overlays/"*.dtbo)
-if [ ${#dtbo_files[@]} -gt 0 ]; then
-    echo "Installing ${#dtbo_files[@]} overlay files..."
-    cp -f "$PACKAGE_KERNEL_DIR/overlays/"*.dtbo "$FIRMWARE_DIR/overlays/"
+overlay_files=("$PACKAGE_KERNEL_DIR/overlays/"*.dtbo "$PACKAGE_KERNEL_DIR/overlays/"*.dtb)
+if [ ${#overlay_files[@]} -gt 0 ]; then
+    echo "Installing ${#overlay_files[@]} overlay files..."
+    cp -f "${overlay_files[@]}" "$FIRMWARE_DIR/overlays/"
 fi
 shopt -u nullglob
 
