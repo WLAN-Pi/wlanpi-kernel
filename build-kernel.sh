@@ -318,7 +318,6 @@ build_kernel_variant() {
     mkdir -p "$(dirname "$IMAGE_OUTPUT")"
     cp arch/arm64/boot/Image "$IMAGE_OUTPUT"
 
-    # Collect DTBs and overlays (first variant only to avoid duplicates)
     if [ "$VARIANT" == "bcm2711" ]; then
         echo "Collecting DTBs and overlays..."
         find arch/arm64/boot/dts/ -name '*.dtb' -not -path '*/overlays/*' -exec cp {} "$DTB_OUTPUT_DIR" \;
@@ -552,7 +551,6 @@ if [ ${#dtb_files[@]} -gt 0 ]; then
     cp -f "$PACKAGE_KERNEL_DIR/"*.dtb "$FIRMWARE_DIR/"
 fi
 
-# Install overlays
 overlay_files=("$PACKAGE_KERNEL_DIR/overlays/"*.dtbo "$PACKAGE_KERNEL_DIR/overlays/"*.dtb)
 if [ ${#overlay_files[@]} -gt 0 ]; then
     echo "Installing ${#overlay_files[@]} overlay files..."
