@@ -321,7 +321,7 @@ build_kernel_variant() {
     if [ "$VARIANT" == "bcm2711" ]; then
         echo "Collecting DTBs and overlays..."
         find arch/arm64/boot/dts/ -name '*.dtb' -not -path '*/overlays/*' -exec cp {} "$DTB_OUTPUT_DIR" \;
-        find arch/arm64/boot/dts/overlays/ \( -name '*.dtbo' -o -name '*.dtb' \) -exec cp {} "$DTBO_OUTPUT_DIR" \; || true
+        find arch/arm64/boot/dts/overlays/ \( -name '*.dtbo' -o -name '*.dtb' \) -exec cp {} "$DTBO_OUTPUT_DIR" \;
     fi
 
     # Prepare kernel headers: the tree an out-of-tree module build needs
@@ -428,7 +428,6 @@ build_kernel_package() {
         cp "$DTBO_OUTPUT_DIR"*.dtb "$PKG_DIR/usr/local/lib/wlanpi-kernel/boot/firmware/overlays/"
     fi
 
-    # Copy kernel modules
     if [ "$INCLUDE_PI4" == "yes" ]; then
         echo "Including Pi 4 modules: $BCM2711_VERSION"
         cp -r "$MODULES_OUTPUT_DIR/$BCM2711_VERSION" "$PKG_DIR/lib/modules/"
