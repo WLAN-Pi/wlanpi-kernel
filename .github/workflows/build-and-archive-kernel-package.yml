@@ -20,14 +20,6 @@ on:
           - both
           - v8
           - 2712
-      distro:
-        description: 'Target Debian release'
-        required: true
-        default: 'trixie'
-        type: choice
-        options:
-          - trixie
-          - bookworm
       upload_to_packagecloud:
         description: 'Upload built packages to packagecloud wlanpi/dev'
         required: true
@@ -42,7 +34,7 @@ jobs:
   build:
     runs-on: ubuntu-24.04-arm
     # Device module builds warn unless built with the target release's own gcc.
-    container: debian:${{ github.event.inputs.distro || 'trixie' }}
+    container: debian:trixie
     # Container steps default to sh; the config check uses [[ ]].
     defaults:
       run:
@@ -52,7 +44,7 @@ jobs:
 
     env:
       # DEBIAN_RELEASE drives package naming in build-kernel.sh
-      DEBIAN_RELEASE: ${{ github.event.inputs.distro || 'trixie' }}
+      DEBIAN_RELEASE: trixie
       # Set BUILD_TARGET from workflow input, default to 'both' for push events
       BUILD_TARGET: ${{ github.event.inputs.build_target || 'both' }}
 
