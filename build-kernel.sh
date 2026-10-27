@@ -2,7 +2,7 @@
 
 # Build script for cross-compiling and packaging Linux kernels for Raspberry Pi
 # Supports: Pi 4/CM4 (v8, 4KB pages) and Pi 5 (2712, 16KB pages)
-# Target: ARM64, Distribution: Debian Bookworm/Trixie
+# Target: ARM64
 # Authors: Jerry Olla <jerryolla@gmail.com>, Josh Schmelzle <josh@joshschmelzle.com>
 #
 # Usage: ./build-kernel.sh [TARGET]
@@ -14,19 +14,16 @@
 #
 # Environment variables:
 #   BUILD_TARGET    - Same as TARGET argument (env overrides CLI arg)
-#   DEBIAN_RELEASE  - Target Debian release: trixie (default), bookworm
+#   DEBIAN_RELEASE  - Suite segment in .deb names (default trixie).
 #   CI              - Set to 'true' to indicate CI environment
 #
 # Examples:
 #   ./build-kernel.sh              # Build both kernels for trixie
 #   ./build-kernel.sh v8           # Build v8 only for trixie
 #   BUILD_TARGET=2712 ./build-kernel.sh  # Build 2712 via env var
-#   DEBIAN_RELEASE=trixie ./build-kernel.sh  # Build for Trixie
-#   DEBIAN_RELEASE=trixie ./build-kernel.sh v8  # Build v8 for Trixie
 
 set -euo pipefail  # Enable strict error handling
 
-# Debian release selection (for local testing of different releases)
 DEBIAN_RELEASE="${DEBIAN_RELEASE:-trixie}"
 
 # Support both CLI args and environment variables (env takes precedence for CI)
@@ -55,7 +52,7 @@ case "$BUILD_TARGET" in
         echo ""
         echo "Environment variables:"
         echo "  BUILD_TARGET    - Override target selection (for CI)"
-        echo "  DEBIAN_RELEASE  - Target Debian release: trixie (default), bookworm"
+        echo "  DEBIAN_RELEASE  - Suite segment in .deb names (default trixie)."
         echo ""
         echo "Examples:"
         echo "  DEBIAN_RELEASE=trixie ./build-kernel.sh v8"
@@ -64,17 +61,7 @@ case "$BUILD_TARGET" in
         ;;
 esac
 
-# Validate DEBIAN_RELEASE
-case "$DEBIAN_RELEASE" in
-    bookworm|trixie)
-        echo "Building for Debian release: $DEBIAN_RELEASE"
-        ;;
-    *)
-        echo "ERROR: Invalid DEBIAN_RELEASE '$DEBIAN_RELEASE'"
-        echo "Supported releases: bookworm, trixie"
-        exit 1
-        ;;
-esac
+echo "Building for Debian release: $DEBIAN_RELEASE"
 
 # Enable detailed logging (unbuffered)
 LOG_FILE="build_kernel.log"

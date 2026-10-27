@@ -18,9 +18,6 @@ Build scripts and configuration for cross-compiling a custom Linux kernel for WL
 # Build Pi 5 kernel only (2712, 16KB pages)
 ./build-kernel.sh 2712
 
-# Target Debian Bookworm instead of the default Trixie
-DEBIAN_RELEASE=bookworm ./build-kernel.sh
-
 # Via environment variable (CI style)
 BUILD_TARGET=v8 ./build-kernel.sh
 ```

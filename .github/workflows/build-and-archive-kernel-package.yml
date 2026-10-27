@@ -22,12 +22,9 @@ on:
           - 2712
       distro:
         description: 'Target Debian release'
-        required: true
+        required: false
         default: 'trixie'
-        type: choice
-        options:
-          - trixie
-          - bookworm
+        type: string
       upload_to_packagecloud:
         description: 'Upload built packages to packagecloud wlanpi/dev'
         required: true

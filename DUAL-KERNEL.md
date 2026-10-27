@@ -8,7 +8,7 @@ The WLAN Pi kernel build system creates **three separate kernel packages** to su
 2. **`wlanpi-kernel-trixie-2712`** - Pi 5 only (2712, 16KB pages)
 3. **`wlanpi-kernel-trixie`** - Unified package with both kernels (for systems with ample storage)
 
-Package names use the target Debian release (`$DEBIAN_RELEASE`, `trixie` by default); substitute `bookworm` when building with `DEBIAN_RELEASE=bookworm`.
+`DEBIAN_RELEASE` defaults to `trixie` and appears in each package name.
 
 This conditional packaging approach allows WLAN Pi to optimize for both **space-constrained deployments** (wlanpi1-lite on 8GB eMMC) and **unified multi-platform deployments** (wlanpi2-full on 32GB+ SD cards).
 

@@ -14,16 +14,7 @@ The build script supports building kernels for different hardware variants:
 ./build-kernel.sh 2712      # Build only Pi 5 kernel (2712, 16KB pages)
 ```
 
-**Building for different Debian releases:**
-
-```bash
-# Default: Debian Trixie
-./build-kernel.sh
-
-# Target Debian Bookworm
-DEBIAN_RELEASE=bookworm ./build-kernel.sh
-DEBIAN_RELEASE=bookworm ./build-kernel.sh v8
-```
+`DEBIAN_RELEASE` defaults to `trixie`.
 
 **Requirements:**
 - Cross-compilation toolchain: `gcc-aarch64-linux-gnu`
@@ -42,8 +33,6 @@ When building **2712** only (for trixie):
 When building **both** (for trixie):
 - All of the above, PLUS
 - `wlanpi-kernel-trixie_*.deb` - Unified dual-kernel package for universal images
-
-*Note: Replace `trixie` with `bookworm` in package names when building with `DEBIAN_RELEASE=bookworm`*
 
 ### CI/CD build with GitHub actions
 
