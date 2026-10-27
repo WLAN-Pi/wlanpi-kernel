@@ -14,7 +14,7 @@ The build script supports building kernels for different hardware variants:
 ./build-kernel.sh 2712      # Build only Pi 5 kernel (2712, 16KB pages)
 ```
 
-The packages target Debian Trixie. `DEBIAN_RELEASE` defaults to `trixie`.
+`DEBIAN_RELEASE` defaults to `trixie`.
 
 **Requirements:**
 - Cross-compilation toolchain: `gcc-aarch64-linux-gnu`

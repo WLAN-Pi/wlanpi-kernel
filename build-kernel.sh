@@ -2,7 +2,7 @@
 
 # Build script for cross-compiling and packaging Linux kernels for Raspberry Pi
 # Supports: Pi 4/CM4 (v8, 4KB pages) and Pi 5 (2712, 16KB pages)
-# Target: ARM64, Distribution: Debian Trixie
+# Target: ARM64
 # Authors: Jerry Olla <jerryolla@gmail.com>, Josh Schmelzle <josh@joshschmelzle.com>
 #
 # Usage: ./build-kernel.sh [TARGET]
@@ -14,7 +14,7 @@
 #
 # Environment variables:
 #   BUILD_TARGET    - Same as TARGET argument (env overrides CLI arg)
-#   DEBIAN_RELEASE  - Package suite in the .deb name (defaults to trixie).
+#   DEBIAN_RELEASE  - Suite segment in .deb names (default trixie).
 #   CI              - Set to 'true' to indicate CI environment
 #
 # Examples:
@@ -52,7 +52,7 @@ case "$BUILD_TARGET" in
         echo ""
         echo "Environment variables:"
         echo "  BUILD_TARGET    - Override target selection (for CI)"
-        echo "  DEBIAN_RELEASE  - Package suite in the .deb name (defaults to trixie)."
+        echo "  DEBIAN_RELEASE  - Suite segment in .deb names (default trixie)."
         echo ""
         echo "Examples:"
         echo "  DEBIAN_RELEASE=trixie ./build-kernel.sh v8"
@@ -61,11 +61,6 @@ case "$BUILD_TARGET" in
         ;;
 esac
 
-# Validate DEBIAN_RELEASE
-if [[ -z "$DEBIAN_RELEASE" ]]; then
-    echo "ERROR: DEBIAN_RELEASE must be non-empty"
-    exit 1
-fi
 echo "Building for Debian release: $DEBIAN_RELEASE"
 
 # Enable detailed logging (unbuffered)
