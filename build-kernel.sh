@@ -14,7 +14,7 @@
 #
 # Environment variables:
 #   BUILD_TARGET    - Same as TARGET argument (env overrides CLI arg)
-#   DEBIAN_RELEASE  - Package suite in the .deb name. Only trixie is valid.
+#   DEBIAN_RELEASE  - Package suite in the .deb name (defaults to trixie).
 #   CI              - Set to 'true' to indicate CI environment
 #
 # Examples:
@@ -52,7 +52,7 @@ case "$BUILD_TARGET" in
         echo ""
         echo "Environment variables:"
         echo "  BUILD_TARGET    - Override target selection (for CI)"
-        echo "  DEBIAN_RELEASE  - Package suite in the .deb name. Only trixie is valid."
+        echo "  DEBIAN_RELEASE  - Package suite in the .deb name (defaults to trixie)."
         echo ""
         echo "Examples:"
         echo "  DEBIAN_RELEASE=trixie ./build-kernel.sh v8"
@@ -62,16 +62,11 @@ case "$BUILD_TARGET" in
 esac
 
 # Validate DEBIAN_RELEASE
-case "$DEBIAN_RELEASE" in
-    trixie)
-        echo "Building for Debian release: $DEBIAN_RELEASE"
-        ;;
-    *)
-        echo "ERROR: Invalid DEBIAN_RELEASE '$DEBIAN_RELEASE'"
-        echo "Supported releases: trixie"
-        exit 1
-        ;;
-esac
+if [[ -z "$DEBIAN_RELEASE" ]]; then
+    echo "ERROR: DEBIAN_RELEASE must be non-empty"
+    exit 1
+fi
+echo "Building for Debian release: $DEBIAN_RELEASE"
 
 # Enable detailed logging (unbuffered)
 LOG_FILE="build_kernel.log"

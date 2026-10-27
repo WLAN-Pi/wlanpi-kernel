@@ -22,7 +22,7 @@ Build scripts and configuration for cross-compiling a custom Linux kernel for WL
 BUILD_TARGET=v8 ./build-kernel.sh
 ```
 
-`DEBIAN_RELEASE` is `trixie`. The script rejects any other value. Build output lands in `output/`. A `build_kernel.log` is written alongside. The `linux/` kernel source directory is cached between builds; `make mrproper` is run between the v8 and 2712 builds.
+`DEBIAN_RELEASE` defaults to `trixie`. Build output lands in `output/`. A `build_kernel.log` is written alongside. The `linux/` kernel source directory is cached between builds; `make mrproper` is run between the v8 and 2712 builds.
 
 **Required tools:** `gcc-aarch64-linux-gnu`, `build-essential`, `git`, `libncurses-dev`, `flex`, `bison`, `libssl-dev`, `bc`, `libelf-dev`, `dpkg-dev`
 
